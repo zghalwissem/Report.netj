@@ -1,0 +1,504 @@
+{
+  "name": "facture",
+  "title": "Facture client",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 30,
+      "right": 30,
+      "bottom": 30,
+      "left": 30
+    },
+    "fontFamily": "Lato",
+    "fontSize": 10,
+    "culture": "fr-FR"
+  },
+  "bands": [
+    {
+      "type": "title",
+      "height": 190,
+      "elements": [
+        {
+          "type": "rectangle",
+          "x": 0,
+          "y": 0,
+          "width": 535.28,
+          "height": 6,
+          "background": "#1F3A5F",
+          "id": "e1"
+        },
+        {
+          "id": "e2",
+          "type": "text",
+          "x": 0,
+          "y": 18,
+          "width": 280,
+          "height": 22,
+          "text": "{$P.societe.nom}",
+          "fontSize": 16,
+          "bold": true,
+          "color": "#1F3A5F"
+        },
+        {
+          "id": "e3",
+          "type": "text",
+          "x": 0,
+          "y": 42,
+          "width": 280,
+          "height": 48,
+          "text": "{$P.societe.adresse}\n{$P.societe.ville}\nMF : {$P.societe.mf}",
+          "fontSize": 9,
+          "color": "#555555"
+        },
+        {
+          "id": "e4",
+          "type": "text",
+          "x": 335.28,
+          "y": 16,
+          "width": 200,
+          "height": 30,
+          "text": "FACTURE",
+          "fontSize": 24,
+          "bold": true,
+          "hAlign": "right",
+          "color": "#1F3A5F"
+        },
+        {
+          "id": "e5",
+          "type": "text",
+          "x": 335.28,
+          "y": 48,
+          "width": 200,
+          "height": 16,
+          "text": "N° {$P.numero}",
+          "hAlign": "right",
+          "bold": true
+        },
+        {
+          "id": "e6",
+          "type": "text",
+          "x": 335.28,
+          "y": 64,
+          "width": 200,
+          "height": 16,
+          "text": "Date : {$P.date:dd MMMM yyyy}",
+          "hAlign": "right"
+        },
+        {
+          "id": "e7",
+          "type": "text",
+          "x": 335.28,
+          "y": 80,
+          "width": 200,
+          "height": 16,
+          "text": "Échéance : {$P.echeance:dd/MM/yyyy}",
+          "hAlign": "right",
+          "color": "#555555"
+        },
+        {
+          "type": "rectangle",
+          "x": 295.28,
+          "y": 104,
+          "width": 240,
+          "height": 76,
+          "background": "#F3F6FA",
+          "cornerRadius": 4,
+          "id": "e8"
+        },
+        {
+          "id": "e9",
+          "type": "text",
+          "x": 305.28,
+          "y": 110,
+          "width": 220,
+          "height": 14,
+          "text": "FACTURÉ À",
+          "fontSize": 8,
+          "bold": true,
+          "color": "#1F3A5F"
+        },
+        {
+          "id": "e10",
+          "type": "text",
+          "x": 305.28,
+          "y": 124,
+          "width": 220,
+          "height": 16,
+          "text": "{$P.client.nom}",
+          "bold": true,
+          "fontSize": 11
+        },
+        {
+          "id": "e11",
+          "type": "text",
+          "x": 305.28,
+          "y": 140,
+          "width": 220,
+          "height": 34,
+          "text": "{$P.client.adresse}\n{$P.client.ville}",
+          "fontSize": 9
+        },
+        {
+          "id": "e12",
+          "type": "text",
+          "x": 0,
+          "y": 150,
+          "width": 280,
+          "height": 30,
+          "text": "Objet : {$P.objet}",
+          "italic": true,
+          "color": "#555555",
+          "vAlign": "bottom"
+        }
+      ]
+    },
+    {
+      "type": "columnHeader",
+      "height": 22,
+      "background": "#1F3A5F",
+      "elements": [
+        {
+          "id": "e13",
+          "type": "text",
+          "x": 0,
+          "y": 0,
+          "width": 270,
+          "height": 22,
+          "text": "Désignation",
+          "bold": true,
+          "color": "#FFFFFF",
+          "vAlign": "middle",
+          "padding": 5
+        },
+        {
+          "id": "e14",
+          "type": "text",
+          "x": 270,
+          "y": 0,
+          "width": 55,
+          "height": 22,
+          "text": "Qté",
+          "bold": true,
+          "color": "#FFFFFF",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "padding": 5
+        },
+        {
+          "id": "e15",
+          "type": "text",
+          "x": 325,
+          "y": 0,
+          "width": 100,
+          "height": 22,
+          "text": "Prix unitaire",
+          "bold": true,
+          "color": "#FFFFFF",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "padding": 5
+        },
+        {
+          "id": "e16",
+          "type": "text",
+          "x": 425,
+          "y": 0,
+          "width": 110.28,
+          "height": 22,
+          "text": "Montant",
+          "bold": true,
+          "color": "#FFFFFF",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "padding": 5
+        }
+      ]
+    },
+    {
+      "type": "detail",
+      "height": 22,
+      "alternateBackground": "#F3F6FA",
+      "elements": [
+        {
+          "id": "e17",
+          "type": "text",
+          "x": 0,
+          "y": 0,
+          "width": 270,
+          "height": 22,
+          "text": "{designation}",
+          "vAlign": "middle",
+          "padding": 5
+        },
+        {
+          "id": "e18",
+          "type": "text",
+          "x": 270,
+          "y": 0,
+          "width": 55,
+          "height": 22,
+          "text": "{quantite}",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "padding": 5
+        },
+        {
+          "id": "e19",
+          "type": "text",
+          "x": 325,
+          "y": 0,
+          "width": 100,
+          "height": 22,
+          "text": "{prixUnitaire:N2} DT",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "padding": 5
+        },
+        {
+          "id": "e20",
+          "type": "text",
+          "x": 425,
+          "y": 0,
+          "width": 110.28,
+          "height": 22,
+          "text": "{montant:N2} DT",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "padding": 5,
+          "bold": true
+        }
+      ]
+    },
+    {
+      "type": "summary",
+      "height": 150,
+      "elements": [
+        {
+          "type": "line",
+          "x": 295.28,
+          "y": 4,
+          "width": 240,
+          "height": 4,
+          "direction": "horizontal",
+          "borderWidth": 1,
+          "borderColor": "#1F3A5F",
+          "id": "e21"
+        },
+        {
+          "id": "e22",
+          "type": "text",
+          "x": 295.28,
+          "y": 12,
+          "width": 130,
+          "height": 18,
+          "text": "Total HT",
+          "color": "#555555"
+        },
+        {
+          "id": "e23",
+          "type": "text",
+          "x": 425.28,
+          "y": 12,
+          "width": 110,
+          "height": 18,
+          "text": "{SUM(montant):N2} DT",
+          "hAlign": "right"
+        },
+        {
+          "id": "e24",
+          "type": "text",
+          "x": 295.28,
+          "y": 30,
+          "width": 130,
+          "height": 18,
+          "text": "TVA ({$P.tauxTva} %)",
+          "color": "#555555"
+        },
+        {
+          "id": "e25",
+          "type": "text",
+          "x": 425.28,
+          "y": 30,
+          "width": 110,
+          "height": 18,
+          "text": "{$P.montantTva:N2} DT",
+          "hAlign": "right"
+        },
+        {
+          "type": "rectangle",
+          "x": 295.28,
+          "y": 52,
+          "width": 240,
+          "height": 28,
+          "background": "#1F3A5F",
+          "cornerRadius": 3,
+          "id": "e26"
+        },
+        {
+          "id": "e27",
+          "type": "text",
+          "x": 305.28,
+          "y": 52,
+          "width": 120,
+          "height": 28,
+          "text": "Total TTC",
+          "bold": true,
+          "color": "#FFFFFF",
+          "vAlign": "middle",
+          "fontSize": 12
+        },
+        {
+          "id": "e28",
+          "type": "text",
+          "x": 415.28,
+          "y": 52,
+          "width": 112,
+          "height": 28,
+          "text": "{$P.totalTtc:N2} DT",
+          "bold": true,
+          "color": "#FFFFFF",
+          "vAlign": "middle",
+          "hAlign": "right",
+          "fontSize": 12
+        },
+        {
+          "id": "e29",
+          "type": "text",
+          "x": 0,
+          "y": 12,
+          "width": 250,
+          "height": 16,
+          "text": "{COUNT()} prestations",
+          "italic": true,
+          "color": "#555555"
+        },
+        {
+          "id": "e30",
+          "type": "text",
+          "x": 0,
+          "y": 96,
+          "width": 535.28,
+          "height": 36,
+          "text": "Conditions de paiement : virement bancaire à 30 jours.\nIBAN : {$P.societe.iban}",
+          "fontSize": 8.5,
+          "color": "#555555"
+        }
+      ]
+    },
+    {
+      "type": "pageFooter",
+      "height": 24,
+      "elements": [
+        {
+          "type": "line",
+          "x": 0,
+          "y": 0,
+          "width": 535.28,
+          "height": 4,
+          "direction": "horizontal",
+          "borderWidth": 0.5,
+          "borderColor": "#CCCCCC",
+          "id": "e31"
+        },
+        {
+          "id": "e32",
+          "type": "text",
+          "x": 0,
+          "y": 6,
+          "width": 350,
+          "height": 16,
+          "text": "{$P.societe.nom} — {$P.societe.site}",
+          "fontSize": 8,
+          "color": "#888888"
+        },
+        {
+          "id": "e33",
+          "type": "text",
+          "x": 385.28,
+          "y": 6,
+          "width": 150,
+          "height": 16,
+          "text": "Page {$PAGE} / {$PAGES}",
+          "fontSize": 8,
+          "color": "#888888",
+          "hAlign": "right"
+        }
+      ]
+    }
+  ],
+  "sampleData": {
+    "parameters": {
+      "numero": "FAC-2026-0142",
+      "date": "2026-11-18",
+      "echeance": "2026-12-18",
+      "objet": "Projet de modernisation du SI",
+      "tauxTva": 19,
+      "montantTva": 2569.14,
+      "totalTtc": 16090.94,
+      "societe": {
+        "nom": "Ma Société SARL",
+        "adresse": "12 rue de l'Exemple",
+        "ville": "1000 Tunis",
+        "mf": "1234567/A/M/000",
+        "iban": "TN59 0000 0000 0000 0000 0000",
+        "site": "www.exemple.com"
+      },
+      "client": {
+        "nom": "Client Démo SA",
+        "adresse": "45 avenue des Tests",
+        "ville": "4000 Sousse"
+      }
+    },
+    "rows": [
+      {
+        "designation": "Développement module de facturation",
+        "quantite": 12,
+        "prixUnitaire": 450,
+        "montant": 5400
+      },
+      {
+        "designation": "Licence annuelle — édition Pro",
+        "quantite": 1,
+        "prixUnitaire": 1200,
+        "montant": 1200
+      },
+      {
+        "designation": "Formation utilisateurs (jour)",
+        "quantite": 2,
+        "prixUnitaire": 800,
+        "montant": 1600
+      },
+      {
+        "designation": "Maintenance corrective",
+        "quantite": 6,
+        "prixUnitaire": 95.5,
+        "montant": 573.0
+      },
+      {
+        "designation": "Hébergement cloud (mois)",
+        "quantite": 12,
+        "prixUnitaire": 49.9,
+        "montant": 598.8
+      },
+      {
+        "designation": "Migration des données",
+        "quantite": 1,
+        "prixUnitaire": 1500,
+        "montant": 1500
+      },
+      {
+        "designation": "Support prioritaire",
+        "quantite": 3,
+        "prixUnitaire": 150,
+        "montant": 450
+      },
+      {
+        "designation": "Audit de sécurité",
+        "quantite": 1,
+        "prixUnitaire": 2200,
+        "montant": 2200
+      }
+    ]
+  }
+}

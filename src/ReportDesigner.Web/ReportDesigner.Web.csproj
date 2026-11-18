@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReportDesigner.Core\ReportDesigner.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Modèles d'exemple publiés avec l'application (sans écraser ceux déjà présents sur le serveur). -->
+    <Content Update="templates\**\*.json" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="fonts\**\*.ttf;fonts\**\*.otf" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

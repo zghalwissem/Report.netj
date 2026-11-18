@@ -1,0 +1,817 @@
+{
+  "name": "ventes-par-region",
+  "title": "Ventes par région",
+  "groupBy": "region",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 30,
+      "right": 30,
+      "bottom": 30,
+      "left": 30
+    },
+    "fontFamily": "Lato",
+    "fontSize": 9,
+    "culture": "fr-FR"
+  },
+  "bands": [
+    {
+      "type": "title",
+      "height": 56,
+      "elements": [
+        {
+          "id": "e34",
+          "type": "text",
+          "x": 0,
+          "y": 0,
+          "width": 400,
+          "height": 28,
+          "text": "{$P.titre}",
+          "fontSize": 20,
+          "bold": true,
+          "color": "#14532D"
+        },
+        {
+          "id": "e35",
+          "type": "text",
+          "x": 335.28,
+          "y": 6,
+          "width": 200,
+          "height": 16,
+          "text": "Généré le {$NOW:dd/MM/yyyy à HH:mm}",
+          "hAlign": "right",
+          "color": "#666666",
+          "fontSize": 8
+        },
+        {
+          "id": "e36",
+          "type": "text",
+          "x": 0,
+          "y": 30,
+          "width": 400,
+          "height": 16,
+          "text": "{COUNT()} ventes — total {SUM(montant):N2} DT",
+          "color": "#555555"
+        },
+        {
+          "type": "line",
+          "x": 0,
+          "y": 48,
+          "width": 535.28,
+          "height": 4,
+          "direction": "horizontal",
+          "borderWidth": 1.5,
+          "borderColor": "#14532D",
+          "id": "e37"
+        }
+      ]
+    },
+    {
+      "type": "columnHeader",
+      "height": 20,
+      "elements": [
+        {
+          "id": "e38",
+          "type": "text",
+          "x": 0,
+          "y": 0,
+          "width": 70,
+          "height": 20,
+          "text": "Date",
+          "bold": true,
+          "vAlign": "middle"
+        },
+        {
+          "id": "e39",
+          "type": "text",
+          "x": 70,
+          "y": 0,
+          "width": 90,
+          "height": 20,
+          "text": "Vendeur",
+          "bold": true,
+          "vAlign": "middle"
+        },
+        {
+          "id": "e40",
+          "type": "text",
+          "x": 160,
+          "y": 0,
+          "width": 180,
+          "height": 20,
+          "text": "Produit",
+          "bold": true,
+          "vAlign": "middle"
+        },
+        {
+          "id": "e41",
+          "type": "text",
+          "x": 340,
+          "y": 0,
+          "width": 60,
+          "height": 20,
+          "text": "Qté",
+          "bold": true,
+          "vAlign": "middle",
+          "hAlign": "right"
+        },
+        {
+          "id": "e42",
+          "type": "text",
+          "x": 400,
+          "y": 0,
+          "width": 135.28,
+          "height": 20,
+          "text": "Montant",
+          "bold": true,
+          "vAlign": "middle",
+          "hAlign": "right"
+        },
+        {
+          "type": "line",
+          "x": 0,
+          "y": 17,
+          "width": 535.28,
+          "height": 4,
+          "direction": "horizontal",
+          "borderWidth": 0.75,
+          "borderColor": "#999999",
+          "id": "e43"
+        }
+      ]
+    },
+    {
+      "type": "groupHeader",
+      "height": 26,
+      "elements": [
+        {
+          "type": "rectangle",
+          "x": 0,
+          "y": 4,
+          "width": 535.28,
+          "height": 20,
+          "background": "#DCFCE7",
+          "cornerRadius": 3,
+          "id": "e44"
+        },
+        {
+          "id": "e45",
+          "type": "text",
+          "x": 6,
+          "y": 4,
+          "width": 300,
+          "height": 20,
+          "text": "Région {$GROUP}",
+          "bold": true,
+          "vAlign": "middle",
+          "color": "#14532D",
+          "fontSize": 10
+        }
+      ]
+    },
+    {
+      "type": "detail",
+      "height": 16,
+      "alternateBackground": "#F7F7F7",
+      "elements": [
+        {
+          "id": "e46",
+          "type": "text",
+          "x": 0,
+          "y": 0,
+          "width": 70,
+          "height": 16,
+          "text": "{date:dd/MM/yyyy}",
+          "vAlign": "middle"
+        },
+        {
+          "id": "e47",
+          "type": "text",
+          "x": 70,
+          "y": 0,
+          "width": 90,
+          "height": 16,
+          "text": "{vendeur}",
+          "vAlign": "middle"
+        },
+        {
+          "id": "e48",
+          "type": "text",
+          "x": 160,
+          "y": 0,
+          "width": 180,
+          "height": 16,
+          "text": "{produit}",
+          "vAlign": "middle"
+        },
+        {
+          "id": "e49",
+          "type": "text",
+          "x": 340,
+          "y": 0,
+          "width": 60,
+          "height": 16,
+          "text": "{quantite}",
+          "vAlign": "middle",
+          "hAlign": "right"
+        },
+        {
+          "id": "e50",
+          "type": "text",
+          "x": 400,
+          "y": 0,
+          "width": 135.28,
+          "height": 16,
+          "text": "{montant:N2}",
+          "vAlign": "middle",
+          "hAlign": "right"
+        }
+      ]
+    },
+    {
+      "type": "groupFooter",
+      "height": 26,
+      "elements": [
+        {
+          "type": "line",
+          "x": 340,
+          "y": 0,
+          "width": 195.28,
+          "height": 4,
+          "direction": "horizontal",
+          "borderWidth": 0.75,
+          "borderColor": "#14532D",
+          "id": "e51"
+        },
+        {
+          "id": "e52",
+          "type": "text",
+          "x": 160,
+          "y": 4,
+          "width": 240,
+          "height": 16,
+          "text": "Sous-total {$GROUP} ({COUNT()} ventes)",
+          "italic": true,
+          "hAlign": "right"
+        },
+        {
+          "id": "e53",
+          "type": "text",
+          "x": 400,
+          "y": 4,
+          "width": 135.28,
+          "height": 16,
+          "text": "{SUM(montant):N2}",
+          "bold": true,
+          "hAlign": "right"
+        }
+      ]
+    },
+    {
+      "type": "summary",
+      "height": 40,
+      "elements": [
+        {
+          "type": "rectangle",
+          "x": 300,
+          "y": 10,
+          "width": 235.28,
+          "height": 24,
+          "borderWidth": 1,
+          "borderColor": "#14532D",
+          "id": "e54"
+        },
+        {
+          "id": "e55",
+          "type": "text",
+          "x": 306,
+          "y": 10,
+          "width": 120,
+          "height": 24,
+          "text": "TOTAL GÉNÉRAL",
+          "bold": true,
+          "vAlign": "middle"
+        },
+        {
+          "id": "e56",
+          "type": "text",
+          "x": 400,
+          "y": 10,
+          "width": 129.28,
+          "height": 24,
+          "text": "{SUM(montant):N2} DT",
+          "bold": true,
+          "vAlign": "middle",
+          "hAlign": "right",
+          "fontSize": 11
+        }
+      ]
+    },
+    {
+      "type": "pageFooter",
+      "height": 18,
+      "elements": [
+        {
+          "id": "e57",
+          "type": "text",
+          "x": 0,
+          "y": 2,
+          "width": 535.28,
+          "height": 16,
+          "text": "Page {$PAGE} sur {$PAGES}",
+          "hAlign": "center",
+          "fontSize": 8,
+          "color": "#888888"
+        }
+      ]
+    }
+  ],
+  "sampleData": {
+    "parameters": {
+      "titre": "Ventes par région — 2026"
+    },
+    "rows": [
+      {
+        "region": "Centre",
+        "date": "2026-01-01",
+        "vendeur": "Karim",
+        "produit": "Clavier",
+        "quantite": 9,
+        "montant": 405
+      },
+      {
+        "region": "Centre",
+        "date": "2026-01-03",
+        "vendeur": "Youssef",
+        "produit": "Ordinateur portable",
+        "quantite": 6,
+        "montant": 2094
+      },
+      {
+        "region": "Centre",
+        "date": "2026-01-22",
+        "vendeur": "Amine",
+        "produit": "Casque audio",
+        "quantite": 15,
+        "montant": 675
+      },
+      {
+        "region": "Centre",
+        "date": "2026-02-18",
+        "vendeur": "Nadia",
+        "produit": "Ordinateur portable",
+        "quantite": 11,
+        "montant": 3839
+      },
+      {
+        "region": "Centre",
+        "date": "2026-02-26",
+        "vendeur": "Nadia",
+        "produit": "Clavier",
+        "quantite": 13,
+        "montant": 2730
+      },
+      {
+        "region": "Centre",
+        "date": "2026-02-27",
+        "vendeur": "Nadia",
+        "produit": "Ordinateur portable",
+        "quantite": 8,
+        "montant": 1680
+      },
+      {
+        "region": "Centre",
+        "date": "2026-03-23",
+        "vendeur": "Youssef",
+        "produit": "Casque audio",
+        "quantite": 10,
+        "montant": 12990
+      },
+      {
+        "region": "Centre",
+        "date": "2026-03-25",
+        "vendeur": "Karim",
+        "produit": "Écran 27\"",
+        "quantite": 2,
+        "montant": 2598
+      },
+      {
+        "region": "Centre",
+        "date": "2026-05-03",
+        "vendeur": "Sarra",
+        "produit": "Ordinateur portable",
+        "quantite": 8,
+        "montant": 360
+      },
+      {
+        "region": "Centre",
+        "date": "2026-06-05",
+        "vendeur": "Youssef",
+        "produit": "Casque audio",
+        "quantite": 10,
+        "montant": 12990
+      },
+      {
+        "region": "Centre",
+        "date": "2026-06-20",
+        "vendeur": "Leila",
+        "produit": "Casque audio",
+        "quantite": 10,
+        "montant": 899.0
+      },
+      {
+        "region": "Centre",
+        "date": "2026-07-04",
+        "vendeur": "Leila",
+        "produit": "Station d'accueil",
+        "quantite": 7,
+        "montant": 315
+      },
+      {
+        "region": "Centre",
+        "date": "2026-07-05",
+        "vendeur": "Youssef",
+        "produit": "Ordinateur portable",
+        "quantite": 9,
+        "montant": 3141
+      },
+      {
+        "region": "Centre",
+        "date": "2026-07-18",
+        "vendeur": "Karim",
+        "produit": "Écran 27\"",
+        "quantite": 2,
+        "montant": 698
+      },
+      {
+        "region": "Centre",
+        "date": "2026-07-22",
+        "vendeur": "Karim",
+        "produit": "Ordinateur portable",
+        "quantite": 14,
+        "montant": 630
+      },
+      {
+        "region": "Centre",
+        "date": "2026-08-04",
+        "vendeur": "Amine",
+        "produit": "Clavier",
+        "quantite": 6,
+        "montant": 7794
+      },
+      {
+        "region": "Centre",
+        "date": "2026-08-10",
+        "vendeur": "Youssef",
+        "produit": "Ordinateur portable",
+        "quantite": 9,
+        "montant": 405
+      },
+      {
+        "region": "Centre",
+        "date": "2026-09-05",
+        "vendeur": "Youssef",
+        "produit": "Écran 27\"",
+        "quantite": 14,
+        "montant": 18186
+      },
+      {
+        "region": "Centre",
+        "date": "2026-10-15",
+        "vendeur": "Karim",
+        "produit": "Imprimante",
+        "quantite": 7,
+        "montant": 629.3
+      },
+      {
+        "region": "Nord",
+        "date": "2026-01-09",
+        "vendeur": "Sarra",
+        "produit": "Imprimante",
+        "quantite": 7,
+        "montant": 2443
+      },
+      {
+        "region": "Nord",
+        "date": "2026-01-16",
+        "vendeur": "Youssef",
+        "produit": "Écran 27\"",
+        "quantite": 4,
+        "montant": 840
+      },
+      {
+        "region": "Nord",
+        "date": "2026-02-07",
+        "vendeur": "Leila",
+        "produit": "Écran 27\"",
+        "quantite": 7,
+        "montant": 840
+      },
+      {
+        "region": "Nord",
+        "date": "2026-02-09",
+        "vendeur": "Leila",
+        "produit": "Station d'accueil",
+        "quantite": 13,
+        "montant": 585
+      },
+      {
+        "region": "Nord",
+        "date": "2026-02-17",
+        "vendeur": "Nadia",
+        "produit": "Écran 27\"",
+        "quantite": 3,
+        "montant": 360
+      },
+      {
+        "region": "Nord",
+        "date": "2026-03-03",
+        "vendeur": "Sarra",
+        "produit": "Écran 27\"",
+        "quantite": 11,
+        "montant": 495
+      },
+      {
+        "region": "Nord",
+        "date": "2026-03-14",
+        "vendeur": "Youssef",
+        "produit": "Imprimante",
+        "quantite": 5,
+        "montant": 449.5
+      },
+      {
+        "region": "Nord",
+        "date": "2026-03-16",
+        "vendeur": "Youssef",
+        "produit": "Station d'accueil",
+        "quantite": 1,
+        "montant": 349
+      },
+      {
+        "region": "Nord",
+        "date": "2026-04-03",
+        "vendeur": "Youssef",
+        "produit": "Clavier",
+        "quantite": 7,
+        "montant": 315
+      },
+      {
+        "region": "Nord",
+        "date": "2026-04-04",
+        "vendeur": "Sarra",
+        "produit": "Clavier",
+        "quantite": 6,
+        "montant": 539.4
+      },
+      {
+        "region": "Nord",
+        "date": "2026-04-13",
+        "vendeur": "Leila",
+        "produit": "Clavier",
+        "quantite": 4,
+        "montant": 359.6
+      },
+      {
+        "region": "Nord",
+        "date": "2026-04-21",
+        "vendeur": "Nadia",
+        "produit": "Casque audio",
+        "quantite": 1,
+        "montant": 1299
+      },
+      {
+        "region": "Nord",
+        "date": "2026-05-21",
+        "vendeur": "Youssef",
+        "produit": "Station d'accueil",
+        "quantite": 11,
+        "montant": 1320
+      },
+      {
+        "region": "Nord",
+        "date": "2026-06-15",
+        "vendeur": "Nadia",
+        "produit": "Casque audio",
+        "quantite": 14,
+        "montant": 4886
+      },
+      {
+        "region": "Nord",
+        "date": "2026-06-20",
+        "vendeur": "Amine",
+        "produit": "Ordinateur portable",
+        "quantite": 3,
+        "montant": 3897
+      },
+      {
+        "region": "Nord",
+        "date": "2026-06-22",
+        "vendeur": "Youssef",
+        "produit": "Casque audio",
+        "quantite": 2,
+        "montant": 2598
+      },
+      {
+        "region": "Nord",
+        "date": "2026-07-24",
+        "vendeur": "Sarra",
+        "produit": "Écran 27\"",
+        "quantite": 13,
+        "montant": 4537
+      },
+      {
+        "region": "Nord",
+        "date": "2026-08-20",
+        "vendeur": "Youssef",
+        "produit": "Ordinateur portable",
+        "quantite": 4,
+        "montant": 359.6
+      },
+      {
+        "region": "Nord",
+        "date": "2026-08-25",
+        "vendeur": "Sarra",
+        "produit": "Casque audio",
+        "quantite": 9,
+        "montant": 11691
+      },
+      {
+        "region": "Nord",
+        "date": "2026-09-02",
+        "vendeur": "Sarra",
+        "produit": "Écran 27\"",
+        "quantite": 9,
+        "montant": 405
+      },
+      {
+        "region": "Nord",
+        "date": "2026-09-07",
+        "vendeur": "Amine",
+        "produit": "Ordinateur portable",
+        "quantite": 6,
+        "montant": 7794
+      },
+      {
+        "region": "Nord",
+        "date": "2026-09-12",
+        "vendeur": "Sarra",
+        "produit": "Station d'accueil",
+        "quantite": 9,
+        "montant": 1080
+      },
+      {
+        "region": "Nord",
+        "date": "2026-09-15",
+        "vendeur": "Youssef",
+        "produit": "Ordinateur portable",
+        "quantite": 5,
+        "montant": 600
+      },
+      {
+        "region": "Nord",
+        "date": "2026-10-04",
+        "vendeur": "Leila",
+        "produit": "Ordinateur portable",
+        "quantite": 8,
+        "montant": 719.2
+      },
+      {
+        "region": "Nord",
+        "date": "2026-10-15",
+        "vendeur": "Nadia",
+        "produit": "Écran 27\"",
+        "quantite": 3,
+        "montant": 360
+      },
+      {
+        "region": "Sud",
+        "date": "2026-01-04",
+        "vendeur": "Amine",
+        "produit": "Casque audio",
+        "quantite": 2,
+        "montant": 179.8
+      },
+      {
+        "region": "Sud",
+        "date": "2026-01-15",
+        "vendeur": "Nadia",
+        "produit": "Casque audio",
+        "quantite": 11,
+        "montant": 2310
+      },
+      {
+        "region": "Sud",
+        "date": "2026-02-24",
+        "vendeur": "Sarra",
+        "produit": "Écran 27\"",
+        "quantite": 8,
+        "montant": 360
+      },
+      {
+        "region": "Sud",
+        "date": "2026-03-04",
+        "vendeur": "Youssef",
+        "produit": "Casque audio",
+        "quantite": 10,
+        "montant": 899.0
+      },
+      {
+        "region": "Sud",
+        "date": "2026-04-03",
+        "vendeur": "Youssef",
+        "produit": "Imprimante",
+        "quantite": 4,
+        "montant": 1396
+      },
+      {
+        "region": "Sud",
+        "date": "2026-04-16",
+        "vendeur": "Nadia",
+        "produit": "Casque audio",
+        "quantite": 10,
+        "montant": 1200
+      },
+      {
+        "region": "Sud",
+        "date": "2026-04-16",
+        "vendeur": "Sarra",
+        "produit": "Clavier",
+        "quantite": 15,
+        "montant": 675
+      },
+      {
+        "region": "Sud",
+        "date": "2026-05-16",
+        "vendeur": "Nadia",
+        "produit": "Écran 27\"",
+        "quantite": 12,
+        "montant": 1078.8
+      },
+      {
+        "region": "Sud",
+        "date": "2026-05-21",
+        "vendeur": "Amine",
+        "produit": "Station d'accueil",
+        "quantite": 9,
+        "montant": 1080
+      },
+      {
+        "region": "Sud",
+        "date": "2026-05-23",
+        "vendeur": "Leila",
+        "produit": "Imprimante",
+        "quantite": 14,
+        "montant": 630
+      },
+      {
+        "region": "Sud",
+        "date": "2026-06-06",
+        "vendeur": "Karim",
+        "produit": "Écran 27\"",
+        "quantite": 14,
+        "montant": 1258.6
+      },
+      {
+        "region": "Sud",
+        "date": "2026-06-09",
+        "vendeur": "Youssef",
+        "produit": "Clavier",
+        "quantite": 9,
+        "montant": 3141
+      },
+      {
+        "region": "Sud",
+        "date": "2026-06-21",
+        "vendeur": "Sarra",
+        "produit": "Casque audio",
+        "quantite": 9,
+        "montant": 11691
+      },
+      {
+        "region": "Sud",
+        "date": "2026-07-02",
+        "vendeur": "Sarra",
+        "produit": "Ordinateur portable",
+        "quantite": 1,
+        "montant": 1299
+      },
+      {
+        "region": "Sud",
+        "date": "2026-07-05",
+        "vendeur": "Nadia",
+        "produit": "Imprimante",
+        "quantite": 14,
+        "montant": 4886
+      },
+      {
+        "region": "Sud",
+        "date": "2026-10-12",
+        "vendeur": "Leila",
+        "produit": "Station d'accueil",
+        "quantite": 5,
+        "montant": 1745
+      }
+    ]
+  }
+}
