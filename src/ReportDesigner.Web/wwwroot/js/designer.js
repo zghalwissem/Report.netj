@@ -1135,7 +1135,10 @@ function elementProps(els) {
       h('div', { class: 'grid2' },
         prop('Horizontal', selectInput(e.hAlign, [['left', 'Gauche'], ['center', 'Centre'], ['right', 'Droite'], ['justify', 'Justifié']], set('hAlign'))),
         prop('Vertical', selectInput(e.vAlign, [['top', 'Haut'], ['middle', 'Milieu'], ['bottom', 'Bas']], set('vAlign'))),
-        prop('Texte trop long', selectInput(e.overflow, [['clip', 'Tronquer (…)'], ['shrink', 'Réduire pour tenir']], set('overflow')), 'full'))));
+        prop('Texte trop long', selectInput(e.overflow, [['clip', 'Tronquer (…)'], ['shrink', 'Réduire pour tenir']], set('overflow')), 'full'),
+        h('label', { class: 'inline full', style: { marginLeft: 0, gridColumn: '1 / -1' }, title: 'Coupe les mots en fin de ligne (français, anglais) selon la langue du rapport.' },
+          h('input', { type: 'checkbox', checked: !!e.hyphenate, onchange: ev => update(() => els.forEach(el => (el.hyphenate = ev.target.checked)), `hyphenate:${e.id}`) }),
+          'Césure des mots (coupure avec trait d\'union)'))));
   }
 
   if (sameType && e.type === 'image') {
@@ -1230,7 +1233,12 @@ function reportProps() {
   return [
     h('fieldset', {}, h('legend', {}, 'Rapport'),
       h('div', { class: 'grid2' },
-        prop('Titre', textInput(t.title, v => update(() => { t.title = v || null; updateTitle(); }, 'title')), 'full'))),
+        prop('Titre', textInput(t.title, v => update(() => { t.title = v || null; updateTitle(); }, 'title')), 'full'),
+        prop('Langue', textInput(t.language, v => update(() => (t.language = v.trim() || null), 'language'),
+          { placeholder: `selon la culture (${(t.page.culture || 'fr').split('-')[0]})`, list: 'languageList', title: 'Langue du document, utilisée pour la césure (fr, en).' })),
+        h('label', { class: 'inline', style: { alignSelf: 'end', marginLeft: 0 }, title: 'PDF/A-2b : archivage à long terme (polices intégrées, métadonnées XMP, profil sRGB).' },
+          h('input', { type: 'checkbox', checked: !!t.pdfA, onchange: e => update(() => (t.pdfA = e.target.checked)) }), 'PDF/A (archivage)'),
+        datalist('languageList', ['fr', 'en']))),
     groupsEditor(),
     h('fieldset', {}, h('legend', {}, 'Page'),
       h('div', { class: 'grid2' },

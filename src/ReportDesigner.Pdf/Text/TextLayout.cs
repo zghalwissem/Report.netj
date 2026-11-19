@@ -13,6 +13,9 @@ public sealed class TextLine
     public bool EndsParagraph { get; set; }
 
     public int SpaceCount => Segments.Count(s => s.IsSpace);
+
+    /// <summary>Direction du paragraphe : 0 (gauche à droite) ou 1 (droite à gauche), déduite de son premier caractère fort.</summary>
+    public int ParagraphLevel { get; set; }
 }
 
 /// <summary>Résultat d'une mise en page de texte : lignes et métriques.</summary>
@@ -38,6 +41,9 @@ public sealed record TextLayoutOptions
     /// <summary>Nombre maximal de lignes ; au-delà, le texte est tronqué avec <see cref="Ellipsis"/>.</summary>
     public int? MaxLines { get; init; }
     public string Ellipsis { get; init; } = "…";
+
+    /// <summary>Césure des mots en fin de ligne (null : pas de césure).</summary>
+    public Hyphenator? Hyphenator { get; init; }
 }
 
 /// <summary>Découpage en lignes : retour à la ligne au mot, mots trop longs coupés, sauts de ligne explicites.</summary>
@@ -57,7 +63,8 @@ public static class TextLayoutEngine
         var lines = new List<TextLine>();
         foreach (var paragraph in text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
-            var line = new TextLine();
+            var paragraphLevel = Bidi.NeedsReordering(paragraph) ? Bidi.ParagraphLevel(paragraph) : 0;
+            var line = new TextLine { ParagraphLevel = paragraphLevel };
             var pendingSpaces = new List<TextSegment>();
 
             foreach (var (token, isSpace) in Tokenize(paragraph))
@@ -80,10 +87,38 @@ public static class TextLayoutEngine
                 }
                 else
                 {
+                    var remaining = token;
+                    // Césure seulement pour compléter une ligne commencée, ou pour un mot plus large que la colonne.
+                    if (options.Hyphenator is { } hyphenator && (line.Segments.Count > 0 || wordWidth > maxWidth + Epsilon))
+                    {
+                        // Césure : le début du mot complète la ligne courante, suivi d'un trait d'union.
+                        var positions = hyphenator.Positions(token);
+                        var consumed = 0;
+                        while (positions.Count > 0)
+                        {
+                            var used = line.Segments.Count > 0 ? line.Width + spacesWidth : 0;
+                            var cut = positions.Where(p => p > consumed).Reverse().FirstOrDefault(p =>
+                                used + Width(measurer, token[consumed..p] + "-", options) <= maxWidth + Epsilon);
+                            if (cut == 0) break;
+
+                            if (line.Segments.Count > 0) line.Segments.AddRange(pendingSpaces);
+                            line.Segments.AddRange(measurer.Segment(token[consumed..cut] + "-", options.Face, size, options.Bold, options.Italic));
+                            lines.Add(line);
+                            line = new TextLine { ParagraphLevel = paragraphLevel };
+                            pendingSpaces.Clear();
+                            spacesWidth = 0;
+                            consumed = cut;
+                            if (Width(measurer, token[consumed..], options) <= maxWidth + Epsilon) break;
+                        }
+                        remaining = token[consumed..];
+                        word = measurer.Segment(remaining, options.Face, size, options.Bold, options.Italic);
+                        wordWidth = word.Sum(s => s.Width);
+                    }
+
                     if (line.Segments.Count > 0)
                     {
                         lines.Add(line);
-                        line = new TextLine();
+                        line = new TextLine { ParagraphLevel = paragraphLevel };
                     }
                     if (wordWidth <= maxWidth + Epsilon)
                     {
@@ -91,10 +126,10 @@ public static class TextLayoutEngine
                     }
                     else
                     {
-                        // Mot plus large que la zone : coupé au caractère.
-                        foreach (var chunk in BreakWord(measurer, token, maxWidth, options))
+                        // Mot plus large que la zone (et sans coupure possible) : coupé au caractère.
+                        foreach (var chunk in BreakWord(measurer, remaining, maxWidth, options))
                         {
-                            if (line.Segments.Count > 0) { lines.Add(line); line = new TextLine(); }
+                            if (line.Segments.Count > 0) { lines.Add(line); line = new TextLine { ParagraphLevel = paragraphLevel }; }
                             line.Segments.AddRange(chunk);
                         }
                     }
@@ -164,6 +199,9 @@ public static class TextLayoutEngine
     }
 
     private static bool IsSpace(char c) => c is ' ' or '\t';
+
+    private static float Width(TextMeasurer measurer, string text, TextLayoutOptions o) =>
+        measurer.Segment(text, o.Face, o.FontSize, o.Bold, o.Italic).Sum(s => s.Width);
 
     private static IEnumerable<List<TextSegment>> BreakWord(TextMeasurer measurer, string word, float maxWidth, TextLayoutOptions o)
     {

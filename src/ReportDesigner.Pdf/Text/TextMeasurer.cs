@@ -83,11 +83,12 @@ public sealed class TextMeasurer : IDisposable
     /// (clusters) sont transmis au PDF : ligatures (« ti », « fi »…) et écritures complexes restent
     /// correctement sélectionnables et recherchables.
     /// </summary>
-    public void Draw(SKCanvas canvas, string text, FontFace face, float size, float x, float baseline, SKPaint paint)
+    /// <param name="rightToLeft">Direction du morceau, déterminée par l'algorithme bidi.</param>
+    public void Draw(SKCanvas canvas, string text, FontFace face, float size, float x, float baseline, SKPaint paint, bool rightToLeft = false)
     {
         if (text.Length == 0) return;
         var font = GetFont(face, size);
-        var shaped = Shape(text, face, size);
+        var shaped = Shape(text, face, size, rightToLeft ? true : null);
         var glyphs = shaped.Glyphs;
         if (glyphs.Length == 0) return;
 

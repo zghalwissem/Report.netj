@@ -21,6 +21,8 @@ Deux modèles d'exemple sont fournis :
 - **facture** : facture avec en-tête, lignes, totaux et pied de page ;
 - **ventes-par-region** : liste groupée par région, avec sous-totaux et total général.
 
+La facture montre aussi une désignation **extensible** : la ligne s'agrandit pour afficher un texte long.
+
 Cliquez sur **▶ Aperçu PDF** ou appuyez sur <kbd>Ctrl</kbd>+<kbd>Entrée</kbd> pour générer le PDF.
 
 ## Structure
@@ -46,8 +48,15 @@ Cliquez sur **▶ Aperçu PDF** ou appuyez sur <kbd>Ctrl</kbd>+<kbd>Entrée</kbd
   - dans l'en-tête de colonnes, un libellé est créé ;
   - dans le résumé ou un pied de groupe, un champ numérique devient `SUM(...)`.
 - **Propriétés** : police, taille, gras, italique, souligné, couleurs, alignements, bordures, arrondis,
-  marges intérieures, comportement si le texte est trop long (tronquer ou réduire) ; format de page,
-  orientation, marges, culture, regroupement.
+  marges intérieures, comportement si le texte est trop long (tronquer ou réduire), césure ; format de page,
+  orientation, marges, culture, langue, PDF/A.
+- **Éléments extensibles** : un texte long agrandit sa bande au lieu d'être tronqué (équivalent de
+  « Stretch with overflow » dans Jasper). Les éléments situés dessous descendent, et les cadres et
+  séparateurs verticaux extensibles s'étirent avec la bande.
+- **Conditions** : « Afficher si » sur un élément, « Imprimer si » sur une bande (ex. `remise > 0`,
+  `$PAGE > 1`). Les couleurs et les images peuvent être calculées par une expression.
+- **Groupes imbriqués** : autant de niveaux que nécessaire (ex. région, puis vendeur), chacun avec son
+  en-tête, son pied et l'option « nouvelle page ».
 - **Données d'exemple** (onglet « Données ») enregistrées avec le modèle pour l'aperçu.
 - Annuler et rétablir, copier, coller, dupliquer ; enregistrement sur le serveur, import et export JSON.
 
@@ -58,15 +67,28 @@ Tout texte peut contenir des expressions `{expression}` ou `{expression:format}`
 
 | Expression | Résultat |
 |---|---|
-| `{nom}`, `{client.adresse.ville}` | champ de la ligne courante (chemin pointé) |
+| `{nom}`, `{client.adresse.ville}`, `{[nom complet]}` | champ de la ligne courante (chemin pointé, crochets si le nom contient des espaces) |
 | `{montant:N2}`, `{date:dd/MM/yyyy}` | valeur formatée |
 | `{$P.titre}` | paramètre du rapport |
-| `{SUM(montant)}`, `AVG`, `MIN`, `MAX`, `{COUNT()}` | agrégats : sur le groupe dans les bandes de groupe, sur tout le rapport ailleurs |
-| `{$PAGE}`, `{$PAGES}` | numéro de page et nombre total de pages |
+| `{qte * prix:N2}`, `{nom + ' (' + ville + ')'}` | calculs `+ - * / %` et concaténation de textes |
+| `{IF(montant > 1000, 'Gros', 'Petit')}` | conditions : `= != < <= > >=`, `and or not` |
+| `{SUM(qte * prix):N2}` | agrégat sur une expression : `SUM AVG MIN MAX COUNT COUNT_DISTINCT FIRST LAST` |
+| `{SUM(montant, 'report')}`, `{SUM(montant, 'group1')}` | portée explicite : rapport entier ou niveau de groupe |
+| `{$PAGE}`, `{$PAGES}` | numéro de page et nombre total de pages (utilisables dans des calculs) |
 | `{$DATE}`, `{$NOW:HH:mm}` | date et heure de génération |
-| `{$ROW}`, `{$GROUP_ROW}`, `{$GROUP}` | numéro de ligne dans le rapport ou le groupe, valeur du groupe |
+| `{$ROW}`, `{$GROUP_ROW}`, `{$GROUP}`, `{$GROUP1}`… | numéro de ligne, valeur du groupe courant ou d'un niveau |
 | `{actif:Oui\|Non}` | libellés d'un booléen |
 | `{{` `}}` | accolades littérales |
+
+Par défaut, les agrégats portent sur le groupe courant (bandes de groupe et détail), sinon sur tout le rapport.
+
+**Fonctions** :
+- conditions : `IF COALESCE ISNULL ISEMPTY` ;
+- nombres : `ROUND FLOOR CEILING ABS MIN MAX NUMBER` ;
+- texte : `UPPER LOWER TRIM LEN LEFT RIGHT SUBSTR REPLACE CONTAINS STARTSWITH ENDSWITH CONCAT FORMAT` ;
+- dates : `DATE YEAR MONTH DAY ADDDAYS ADDMONTHS DATEDIFF`.
+
+Une division par zéro donne une valeur vide. Une expression invalide est signalée avec sa position.
 
 ## Données
 
@@ -77,8 +99,10 @@ Les données sont du JSON, dans l'un de ces formats :
 { "parameters": { "titre": "Ventes" }, "rows": [ { ... }, ... ] }   // paramètres + lignes
 ```
 
-Pour les groupes, indiquez le champ dans **Regrouper par** (propriétés du rapport). Les groupes suivent
-l'ordre de première apparition : les données n'ont pas besoin d'être triées.
+Pour les groupes, ajoutez des niveaux dans **Groupes** (propriétés du rapport). Chaque niveau a pour clé un
+champ ou une expression, par exemple `region` ou `YEAR(date)`. Les groupes suivent l'ordre de première
+apparition : les données n'ont pas besoin d'être triées. Les anciens modèles qui utilisent `groupBy` sont
+convertis automatiquement.
 
 ## API
 
@@ -107,17 +131,27 @@ Une bibliothèque autonome qui remplace QuestPDF pour ce type de rapports.
 |---|---|
 | `ReportPaginator` (Core) | Pagination géométrique des bandes : en-têtes et pieds répétés, en-tête de colonnes répété, en-tête de groupe jamais seul en bas de page, aucune bande coupée. Le nombre total de pages est connu avant le dessin. |
 | `FontLibrary` | Lato intégrée (police par défaut, licence OFL), polices enregistrées, polices système, et **police de secours** pour les caractères absents (arabe, symboles…). Gras et italique simulés si la variante manque. |
-| `TextLayoutEngine` / `TextMeasurer` | Mise en forme HarfBuzz (crénage, ligatures, arabe), retour à la ligne au mot, mots trop longs coupés, troncature « … », réduction pour tenir, justification, soulignement. |
-| `BidiReorder` | Réordonnancement droite-à-gauche simplifié (UAX #9) pour l'arabe et l'hébreu au sein d'un texte latin, et inversement. |
+| `TextLayoutEngine` / `TextShaper` | Mise en forme HarfBuzz (crénage, formes arabes), retour à la ligne au mot, **césure**, mots trop longs coupés, troncature « … », réduction pour tenir, justification, soulignement. |
+| `Hyphenator` | Césure par l'algorithme de Liang (celui de TeX), avec les motifs hyph-utf8 pour le français et l'anglais. |
+| `Bidi` / `BidiReorder` | **Algorithme bidirectionnel Unicode (UAX #9)** caractère par caractère : incorporations et isolats explicites, nombres et séparateurs, paires de parenthèses, inversion des parenthèses en miroir. |
+| `BandStretcher` (Core) | Agrandissement des bandes contenant des éléments extensibles ; la hauteur est mesurée par le moteur PDF. |
 | `FontSubsetter` | Intègre au PDF **uniquement les glyphes utilisés** (via `hb_subset` de HarfBuzz) : une facture fait environ 32 Ko au lieu d'environ 1 Mo. |
-| `PdfReportRenderer` | Assemble le tout. Premier passage : relevé des glyphes utilisés. Second passage : écriture du PDF avec SkiaSharp. |
+| `PdfReportRenderer` | Assemble le tout. Premier passage : relevé des glyphes utilisés. Second passage : écriture du PDF avec SkiaSharp, en **PDF/A-2b** si demandé. |
 
-Le texte du PDF reste **sélectionnable et recherchable**, y compris avec les ligatures (« ti », « fi ») :
-le texte d'origine et la correspondance glyphe → caractère sont transmis au PDF.
+Le texte du PDF reste **sélectionnable et recherchable**. Le texte d'origine et la correspondance
+glyphe → caractère sont transmis au PDF. Les ligatures facultatives (« fi », « ti ») sont désactivées pour
+que le PDF contienne bien « f » + « i », et non le caractère `ﬁ`. Le crénage et les ligatures obligatoires
+de l'arabe sont conservés.
 
-**Fidélité** : des tests comparent automatiquement les deux moteurs. Sur les modèles d'exemple et sur un
-rapport groupé de 4 pages, on retrouve le même nombre de pages, les mêmes mots, avec un écart de position
-maximal de 0,3 pt.
+**PDF/A** : la case « PDF/A » du rapport, ou `new PdfReportRenderer { PdfA = true }`, produit un PDF/A-2b :
+métadonnées XMP `pdfaid`, profil de sortie sRGB, identifiant de document et polices intégrées. Ces
+éléments sont vérifiés par les tests. Pour une conformité certifiée, validez vos PDF avec
+[veraPDF](https://verapdf.org) : `verapdf --flavour 2b rapport.pdf`.
+
+**Fidélité** : des tests comparent automatiquement les deux moteurs. Sur les modèles d'exemple, un rapport
+groupé et un rapport à deux niveaux de groupes, on retrouve le même nombre de pages, les mêmes mots, avec
+un écart de position maximal de 0,3 pt. Le moteur QuestPDF, conservé pour ces comparaisons, ne gère ni les
+éléments extensibles, ni la césure, ni le PDF/A.
 
 **Performances** (rapport groupé de 2 000 lignes, 51 pages) : environ 270 ms et 102 Ko, contre 220 ms et
 135 Ko avec QuestPDF.
@@ -168,12 +202,13 @@ Pour revenir à QuestPDF, référencez `ReportDesigner.QuestPdf` et utilisez `ne
 
 ## Limites actuelles
 
-- Les bandes ont une hauteur fixe : un texte plus long que sa zone est tronqué (« … ») ou réduit, mais ne
-  fait pas grandir la bande.
-- Les expressions ne gèrent pas l'arithmétique (`qte * prix`) : fournissez les valeurs calculées dans
-  les données ou les paramètres.
-- Un seul niveau de regroupement ; pas de sous-rapports ni de graphiques.
-- Les images sont statiques : elles sont intégrées au modèle et ne proviennent pas d'un champ.
+- Une bande agrandie ne se coupe pas entre deux pages : sa hauteur est limitée à une page, et un texte
+  plus long est tronqué.
+- Pas de sous-rapports ni de graphiques.
 - Une seule source de données JSON par rapport : pas de connexion SQL directe.
-- Moteur PDF : le réordonnancement droite-à-gauche est simplifié (pas de caractères de contrôle
-  bidirectionnels ni d'inversion des parenthèses), pas de césure, pas de PDF/A ni de signature.
+- Moteur PDF :
+  - bidi : les suites d'isolement de UAX #9 sont approchées par des suites de même niveau, et les classes
+    de caractères sont déduites des plages Unicode ;
+  - césure : français et anglais uniquement ;
+  - PDF/A : niveau B (pas de PDF/A balisé « A »), à valider avec veraPDF ;
+  - pas de signature électronique.

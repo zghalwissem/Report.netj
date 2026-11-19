@@ -267,6 +267,24 @@ public class PdfOutputTests
     }
 
     [Fact]
+    public void Produces_pdfa_structures_when_requested()
+    {
+        var template = Single("Archivage");
+        var regular = System.Text.Encoding.Latin1.GetString(new PdfReportRenderer().RenderPdf(template, ReportData.Empty));
+        template.PdfA = true;
+        var archived = System.Text.Encoding.Latin1.GetString(new PdfReportRenderer().RenderPdf(template, ReportData.Empty));
+
+        Assert.DoesNotContain("pdfaid", regular);
+        Assert.Contains("<pdfaid:part>2</pdfaid:part>", archived);       // XMP : PDF/A-2
+        Assert.Contains("<pdfaid:conformance>B</pdfaid:conformance>", archived);
+        Assert.Contains("/OutputIntents", archived);                     // profil de sortie sRGB
+        Assert.Contains("GTS_PDFA1", archived);
+        Assert.Contains("/ID [", archived.Replace("/ID[", "/ID ["));     // identifiant de document
+        Assert.Contains("/FontFile2", archived);                         // polices intégrées
+        Assert.DoesNotContain("/Encrypt", archived);
+    }
+
+    [Fact]
     public void Writes_metadata()
     {
         using var document = PdfDocument.Open(new PdfReportRenderer().RenderPdf(Single("x"), ReportData.Empty));

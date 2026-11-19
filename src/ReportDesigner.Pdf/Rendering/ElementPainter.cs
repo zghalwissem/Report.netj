@@ -19,10 +19,13 @@ internal sealed class ElementPainter : IDisposable, IBandMeasurer
     private readonly PageSettings _page;
     private readonly Dictionary<string, SKImage> _images = new();
 
-    public ElementPainter(TextMeasurer measurer, PageSettings page)
+    private readonly Hyphenator? _hyphenator;
+
+    public ElementPainter(TextMeasurer measurer, PageSettings page, Hyphenator? hyphenator = null)
     {
         _measurer = measurer;
         _page = page;
+        _hyphenator = hyphenator;
     }
 
     public void DrawBand(SKCanvas canvas, PlacedBand placed, float left, float width, int pageNumber, int totalPages)
@@ -216,9 +219,13 @@ internal sealed class ElementPainter : IDisposable, IBandMeasurer
             // Les espaces sont dessinés (et non simplement sautés) pour que le texte du PDF reste
             // sélectionnable, recherchable et lisible par les lecteurs d'écran. Les segments consécutifs
             // d'une même police sont regroupés en un seul tracé, sauf en justification (espaces élargis).
-            foreach (var run in Runs(line, merge: extraPerSpace == 0))
+            var size = block.FontSize;
+            var pieces = BidiReorder.VisualOrder(line.Segments, line.ParagraphLevel,
+                (text, face, rtl) => _measurer.Shape(text, face, size, rtl).Width, merge: extraPerSpace == 0);
+            foreach (var piece in pieces)
             {
-                _measurer.Draw(canvas, run.Text, run.Face, block.FontSize, x, baseline, paint);
+                var run = piece.Segment;
+                _measurer.Draw(canvas, run.Text, run.Face, size, x, baseline, paint, piece.IsRightToLeft);
                 x += run.Width + (run.IsSpace ? extraPerSpace : 0);
             }
 
@@ -232,11 +239,6 @@ internal sealed class ElementPainter : IDisposable, IBandMeasurer
         }
     }
 
-    /// <summary>
-    /// Segments de la ligne dans l'ordre visuel (bidi). Les segments consécutifs de gauche à droite et de même
-    /// police sont fusionnés (moins d'opérations PDF, texte extrait plus propre) ; jamais les segments de droite
-    /// à gauche, que HarfBuzz retournerait une seconde fois.
-    /// </summary>
     /// <summary>Hauteur nécessaire pour afficher tout le texte (mesure des éléments extensibles).</summary>
     public float MeasureTextHeight(ReportElement e, EvaluationContext ctx)
     {
@@ -264,26 +266,8 @@ internal sealed class ElementPainter : IDisposable, IBandMeasurer
         FontSize = e.FontSize ?? _page.FontSize,
         Bold = e.Bold,
         Italic = e.Italic,
+        Hyphenator = e.Hyphenate ? _hyphenator : null,
     };
-
-    private static IEnumerable<TextSegment> Runs(TextLine line, bool merge)
-    {
-        TextSegment? current = null;
-        foreach (var visual in BidiReorder.VisualOrder(line.Segments))
-        {
-            var segment = visual.Segment;
-            var canMerge = merge && !visual.IsRightToLeft;
-            if (current is not null && canMerge && current.Face == segment.Face)
-            {
-                current = current with { Text = current.Text + segment.Text, Width = current.Width + segment.Width, IsSpace = false };
-                continue;
-            }
-            if (current is not null) yield return current;
-            current = canMerge ? segment : null;
-            if (current is null) yield return segment;
-        }
-        if (current is not null) yield return current;
-    }
 
     public void Dispose()
     {

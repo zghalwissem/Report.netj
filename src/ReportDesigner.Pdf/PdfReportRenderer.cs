@@ -29,6 +29,9 @@ public sealed class PdfReportRenderer : IReportRenderer
     /// </summary>
     public bool SubsetFonts { get; init; } = true;
 
+    /// <summary>Force la production de PDF/A-2b pour tous les rapports (sinon : selon <see cref="ReportTemplate.PdfA"/>).</summary>
+    public bool PdfA { get; init; }
+
     public void Render(ReportTemplate template, ReportData data, Stream output, DateTime? now = null)
     {
         var timestamp = now ?? DateTime.Now;
@@ -40,10 +43,15 @@ public sealed class PdfReportRenderer : IReportRenderer
             Producer = "ReportDesigner.Pdf (SkiaSharp)",
             Creation = timestamp,
             Modified = timestamp,
+            // PDF/A-2b : métadonnées XMP (pdfaid), identifiant de document et profil de sortie sRGB.
+            // Les polices sont toujours intégrées par ce moteur, condition exigée par la norme.
+            PdfA = PdfA || template.PdfA,
         };
 
         using var measurer = new TextMeasurer(_fonts);
-        using var painter = new ElementPainter(measurer, template.Page);
+        // Césure : langue du rapport, sinon langue de la culture de la page (fr-FR → fr).
+        var hyphenator = Hyphenator.ForLanguage(template.Language ?? template.Page.Culture);
+        using var painter = new ElementPainter(measurer, template.Page, hyphenator);
 
         // Pagination ; le peintre mesure les textes extensibles avec la même mise en page qu'au dessin.
         var layout = ReportPaginator.Paginate(template, data, timestamp, painter);

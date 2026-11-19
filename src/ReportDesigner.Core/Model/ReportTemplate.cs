@@ -14,6 +14,15 @@ public sealed class ReportTemplate
 
     public PageSettings Page { get; set; } = new();
 
+    /// <summary>
+    /// Produit un PDF/A-2b (archivage à long terme : polices intégrées, métadonnées XMP, profil de couleur sRGB).
+    /// Pris en charge par le moteur ReportDesigner.Pdf.
+    /// </summary>
+    public bool PdfA { get; set; }
+
+    /// <summary>Langue du document (ex. fr, en) ; par défaut, déduite de la culture de la page. Sert aussi à la césure.</summary>
+    public string? Language { get; set; }
+
     /// <summary>Niveaux de regroupement, du plus externe au plus interne (ex. région puis vendeur).</summary>
     public List<GroupDefinition> Groups { get; set; } = new();
 
@@ -201,6 +210,9 @@ public sealed class ReportElement
     public HorizontalAlignment HAlign { get; set; } = HorizontalAlignment.Left;
     public VerticalAlignment VAlign { get; set; } = VerticalAlignment.Top;
     public TextOverflow Overflow { get; set; } = TextOverflow.Clip;
+
+    /// <summary>Coupe les mots en fin de ligne selon la langue du rapport (français, anglais).</summary>
+    public bool Hyphenate { get; set; }
 
     // --- Boîte ---
     public string? Background { get; set; }

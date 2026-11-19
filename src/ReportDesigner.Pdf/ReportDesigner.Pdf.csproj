@@ -12,6 +12,9 @@
     <!-- Police par défaut (Lato, SIL Open Font License 1.1 : voir Resources/Fonts/OFL.txt). -->
     <EmbeddedResource Include="Resources\Fonts\*.ttf" LogicalName="ReportDesigner.Pdf.Fonts.%(Filename)%(Extension)" />
     <None Include="Resources\Fonts\OFL.txt" Pack="true" PackagePath="licenses\Lato-OFL.txt" />
+    <!-- Motifs de césure hyph-utf8 (licences : Resources/Hyphenation/LICENSES.txt). -->
+    <EmbeddedResource Include="Resources\Hyphenation\*.pat.txt;Resources\Hyphenation\*.hyp.txt" LogicalName="ReportDesigner.Pdf.Hyphenation.%(Filename)%(Extension)" />
+    <None Include="Resources\Hyphenation\LICENSES.txt" Pack="true" PackagePath="licenses\hyphenation-LICENSES.txt" />
   </ItemGroup>
 
   <ItemGroup>
