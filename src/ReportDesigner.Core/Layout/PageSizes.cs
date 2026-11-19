@@ -1,6 +1,6 @@
 using ReportDesigner.Core.Model;
 
-namespace ReportDesigner.Core.Rendering;
+namespace ReportDesigner.Core.Layout;
 
 /// <summary>Formats de page en points (1 pt = 1/72 pouce). Doit rester aligné sur PAGE_SIZES dans designer.js.</summary>
 public static class PageSizes

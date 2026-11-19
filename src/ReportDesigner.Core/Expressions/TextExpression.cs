@@ -13,7 +13,7 @@ public enum TextPartKind
     TotalPages,
 }
 
-/// <summary>Morceau de texte évalué. Les numéros de page sont résolus par QuestPDF au moment du rendu.</summary>
+/// <summary>Morceau de texte évalué. Les numéros de page sont résolus par le moteur PDF au moment du rendu.</summary>
 public readonly record struct TextPart(TextPartKind Kind, string Text = "");
 
 /// <summary>

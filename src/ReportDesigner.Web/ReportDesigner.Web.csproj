@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\ReportDesigner.Core\ReportDesigner.Core.csproj" />
+    <ProjectReference Include="..\ReportDesigner.Pdf\ReportDesigner.Pdf.csproj" />
   </ItemGroup>
 
   <ItemGroup>

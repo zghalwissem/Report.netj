@@ -1,4 +1,4 @@
-/* Report Designer — designer web de modèles de rapports rendus par QuestPDF.
+/* Report Designer — designer web de modèles de rapports rendus en PDF par ReportDesigner.Pdf.
    Aucune dépendance : le modèle (JSON) est édité côté navigateur et rendu en PDF par l'API .NET. */
 'use strict';
 
@@ -22,6 +22,7 @@ const BAND_TYPES = [
 const BAND_ORDER = BAND_TYPES.map(b => b.type);
 const bandInfo = type => BAND_TYPES.find(b => b.type === type);
 
+// Complété au démarrage par les polices enregistrées sur le serveur (GET /api/fonts).
 const FONTS = ['Lato', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'DejaVu Sans', 'DejaVu Serif', 'Inter'];
 const CULTURES = ['fr-FR', 'fr-TN', 'fr-CA', 'en-US', 'en-GB', 'de-DE', 'es-ES', 'ar-TN'];
 const VARIABLES = ['$PAGE', '$PAGES', '$DATE', '$NOW', '$ROW', '$GROUP_ROW', '$GROUP', 'COUNT()'];
@@ -1372,6 +1373,11 @@ async function start() {
     const zoom = localStorage.getItem('reportDesigner.zoom');
     if (zoom) { S.zoom = Number(zoom); $('#zoom').value = zoom; }
   } catch { /* stockage indisponible */ }
+
+  try {
+    for (const family of await (await api('GET', '/api/fonts')).json())
+      if (!FONTS.some(f => f.toLowerCase() === family.toLowerCase())) FONTS.push(family);
+  } catch { /* liste par défaut */ }
 
   let available = [];
   try { available = (await (await api('GET', '/api/templates')).json()).map(t => t.name); } catch { /* API indisponible */ }

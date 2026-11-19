@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ReportDesigner.Core/ReportDesigner.Core.csproj" />
+    <Project Path="src/ReportDesigner.Pdf/ReportDesigner.Pdf.csproj" />
+    <Project Path="src/ReportDesigner.QuestPdf/ReportDesigner.QuestPdf.csproj" />
     <Project Path="src/ReportDesigner.Web/ReportDesigner.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">

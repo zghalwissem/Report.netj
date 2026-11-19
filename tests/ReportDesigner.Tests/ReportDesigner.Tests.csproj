@@ -23,6 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ReportDesigner.Core\ReportDesigner.Core.csproj" />
     <ProjectReference Include="..\..\src\ReportDesigner.Web\ReportDesigner.Web.csproj" />
+    <ProjectReference Include="..\..\src\ReportDesigner.Pdf\ReportDesigner.Pdf.csproj" />
+    <ProjectReference Include="..\..\src\ReportDesigner.QuestPdf\ReportDesigner.QuestPdf.csproj" />
   </ItemGroup>
 
 </Project>

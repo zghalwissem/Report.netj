@@ -2,17 +2,28 @@ using System.Text.Json.Nodes;
 using ReportDesigner.Core;
 using ReportDesigner.Core.Data;
 using ReportDesigner.Core.Model;
-using ReportDesigner.Core.Rendering;
+using ReportDesigner.Pdf;
+using ReportDesigner.QuestPdf;
 using UglyToad.PdfPig;
 
 namespace ReportDesigner.Tests;
 
+/// <summary>Tests de comportement exécutés sur les deux moteurs (SkiaSharp et QuestPDF).</summary>
 public class RendererTests
 {
+    public static TheoryData<string> Engines => ["skia", "questpdf"];
+
+    internal static IReportRenderer Engine(string name) => name switch
+    {
+        "skia" => new PdfReportRenderer(),
+        "questpdf" => new QuestPdfReportRenderer(),
+        _ => throw new ArgumentOutOfRangeException(nameof(name)),
+    };
+
     private static ReportElement Text(string text, float x = 0, float y = 0, float w = 200, float h = 18) =>
         new() { Type = ElementType.Text, Text = text, X = x, Y = y, Width = w, Height = h };
 
-    private static ReportTemplate BuildTemplate() => new()
+    internal static ReportTemplate BuildTemplate() => new()
     {
         Name = "test",
         GroupBy = "categorie",
@@ -38,7 +49,7 @@ public class RendererTests
         ],
     };
 
-    private static ReportData BuildData(int count) => new(
+    internal static ReportData BuildData(int count) => new(
         Enumerable.Range(1, count).Select(i => new JsonObject
         {
             ["nom"] = $"Produit {i}",
@@ -47,17 +58,18 @@ public class RendererTests
         }).ToList(),
         new JsonObject { ["titre"] = "ventes" });
 
-    private static string ExtractText(byte[] pdf, out int pages)
+    internal static string ExtractText(byte[] pdf, out int pages)
     {
         using var document = PdfDocument.Open(pdf);
         pages = document.NumberOfPages;
         return string.Join("\n", document.GetPages().Select(p => string.Join(" ", p.GetWords().Select(w => w.Text))));
     }
 
-    [Fact]
-    public void Renders_multi_page_grouped_report()
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Renders_multi_page_grouped_report(string engine)
     {
-        var pdf = ReportRenderer.RenderPdf(BuildTemplate(), BuildData(200));
+        var pdf = Engine(engine).RenderPdf(BuildTemplate(), BuildData(200));
         var text = ExtractText(pdf, out var pages);
 
         Assert.True(pages > 3, $"Attendu plusieurs pages, obtenu {pages}");
@@ -69,38 +81,42 @@ public class RendererTests
         Assert.Contains($"Page {pages} / {pages}", text);
     }
 
-    [Fact]
-    public void Long_text_is_clipped_instead_of_failing()
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Long_text_is_clipped_instead_of_failing(string engine)
     {
         var template = new ReportTemplate
         {
             Bands = [new() { Type = BandType.Detail, Height = 20, Elements = [Text(string.Join(" ", Enumerable.Repeat("très long texte", 200)), w: 120, h: 20)] }],
         };
-        var pdf = ReportRenderer.RenderPdf(template, BuildData(3));
+        var pdf = Engine(engine).RenderPdf(template, BuildData(3));
         Assert.True(pdf.Length > 0);
     }
 
-    [Fact]
-    public void Long_text_can_shrink_to_fit()
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Long_text_can_shrink_to_fit(string engine)
     {
         var element = Text(string.Join(" ", Enumerable.Repeat("réduire", 100)), w: 100, h: 20);
         element.Overflow = TextOverflow.Shrink;
         var template = new ReportTemplate { Bands = [new() { Type = BandType.Title, Height = 20, Elements = [element] }] };
-        Assert.True(ReportRenderer.RenderPdf(template, ReportData.Empty).Length > 0);
+        Assert.True(Engine(engine).RenderPdf(template, ReportData.Empty).Length > 0);
     }
 
-    [Fact]
-    public void Elements_overflowing_band_do_not_fail()
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Elements_overflowing_band_do_not_fail(string engine)
     {
         var template = new ReportTemplate
         {
             Bands = [new() { Type = BandType.Detail, Height = 10, Elements = [Text("déborde", x: 500, y: 5, w: 200, h: 40)] }],
         };
-        Assert.True(ReportRenderer.RenderPdf(template, BuildData(5)).Length > 0);
+        Assert.True(Engine(engine).RenderPdf(template, BuildData(5)).Length > 0);
     }
 
-    [Fact]
-    public void Renders_image_from_data_url()
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Renders_image_from_data_url(string engine)
     {
         // PNG 1x1 rouge
         const string png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
@@ -108,7 +124,7 @@ public class RendererTests
         {
             Bands = [new() { Type = BandType.Title, Height = 60, Elements = [new() { Type = ElementType.Image, Image = png, Width = 50, Height = 50 }] }],
         };
-        Assert.True(ReportRenderer.RenderPdf(template, ReportData.Empty).Length > 0);
+        Assert.True(Engine(engine).RenderPdf(template, ReportData.Empty).Length > 0);
     }
 
     [Fact]
@@ -121,12 +137,13 @@ public class RendererTests
         Assert.Equal("categorie", back.GroupBy);
     }
 
-    [Fact]
-    public void Uses_sample_data_when_no_data_given()
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Uses_sample_data_when_no_data_given(string engine)
     {
         var template = BuildTemplate();
         template.SampleData = JsonNode.Parse("""{ "parameters": { "titre": "démo" }, "rows": [ { "nom": "X", "prix": 1, "categorie": "A" } ] }""");
-        var text = ExtractText(ReportRenderer.RenderPdf(template), out _);
+        var text = ExtractText(Engine(engine).RenderPdf(template), out _);
         Assert.Contains("Rapport démo", text);
     }
 

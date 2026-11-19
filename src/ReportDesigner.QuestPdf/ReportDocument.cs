@@ -3,13 +3,15 @@ using System.Text.Json.Nodes;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using PageSizes = ReportDesigner.Core.Layout.PageSizes;
 using ReportDesigner.Core.Data;
 using ReportDesigner.Core.Expressions;
+using ReportDesigner.Core.Layout;
 using ReportDesigner.Core.Model;
 using HAlign = ReportDesigner.Core.Model.HorizontalAlignment;
 using VAlign = ReportDesigner.Core.Model.VerticalAlignment;
 
-namespace ReportDesigner.Core.Rendering;
+namespace ReportDesigner.QuestPdf;
 
 /// <summary>
 /// Document QuestPDF construit à partir d'un <see cref="ReportTemplate"/> et de <see cref="ReportData"/>.
@@ -27,7 +29,7 @@ public sealed class ReportDocument : IDocument
     {
         _template = template;
         _data = data;
-        _culture = ResolveCulture(template.Page.Culture);
+        _culture = ReportPaginator.ResolveCulture(template.Page.Culture);
         _now = now ?? DateTime.Now;
     }
 
@@ -98,7 +100,7 @@ public sealed class ReportDocument : IDocument
             decoration.Content().Column(column =>
             {
                 var rowNumber = 0;
-                foreach (var group in GetGroups(grouping))
+                foreach (var group in ReportGrouping.Group(_data.Rows, grouping ? _template.GroupBy : null))
                 {
                     var first = group.Rows.FirstOrDefault();
                     if (grouping && groupHeader is not null)
@@ -128,33 +130,6 @@ public sealed class ReportDocument : IDocument
                 }
             });
         });
-    }
-
-    private IEnumerable<(object? Key, IReadOnlyList<JsonObject> Rows)> GetGroups(bool grouping)
-    {
-        if (!grouping)
-        {
-            yield return (null, _data.Rows);
-            yield break;
-        }
-
-        // Groupes dans l'ordre de première apparition (les données n'ont pas besoin d'être triées).
-        var order = new List<string>();
-        var groups = new Dictionary<string, (object? Key, List<JsonObject> Rows)>();
-        foreach (var row in _data.Rows)
-        {
-            var key = TextExpression.ToClr(TextExpression.Resolve(row, _template.GroupBy!));
-            var id = Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty;
-            if (!groups.TryGetValue(id, out var bucket))
-            {
-                bucket = (key, new List<JsonObject>());
-                groups[id] = bucket;
-                order.Add(id);
-            }
-            bucket.Rows.Add(row);
-        }
-        foreach (var id in order)
-            yield return (groups[id].Key, groups[id].Rows);
     }
 
     private EvaluationContext CreateContext(JsonObject? row, IReadOnlyList<JsonObject> scope, int rowNumber, int groupRowNumber, object? groupKey) => new()
@@ -328,23 +303,6 @@ public sealed class ReportDocument : IDocument
         }
     }
 
-    private static Color? ParseColor(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value.Equals("transparent", StringComparison.OrdinalIgnoreCase)) return null;
-        try
-        {
-            return Color.FromHex(value.Trim());
-        }
-        catch (Exception)
-        {
-            throw new InvalidDataException($"Couleur invalide : « {value} » (format attendu : #RRGGBB).");
-        }
-    }
-
-    private static CultureInfo ResolveCulture(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return CultureInfo.InvariantCulture;
-        try { return CultureInfo.GetCultureInfo(name); }
-        catch (CultureNotFoundException) { return CultureInfo.InvariantCulture; }
-    }
+    private static Color? ParseColor(string? value) =>
+        ReportColor.Parse(value) is { } c ? (Color?)Color.FromARGB(c.A, c.R, c.G, c.B) : null;
 }

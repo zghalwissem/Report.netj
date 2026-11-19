@@ -83,6 +83,15 @@ public sealed class ApiTests : IClassFixture<WebApplicationFactory<Program>>, ID
     }
 
     [Fact]
+    public async Task Lists_fonts_and_uses_new_engine()
+    {
+        Assert.Contains("Lato", await _client.GetStringAsync("/api/fonts"));
+        var response = await _client.PostAsync("/api/render", Json(new { template = Sample(), data = (object?)null }));
+        using var pdf = UglyToad.PdfPig.PdfDocument.Open(await response.Content.ReadAsByteArrayAsync());
+        Assert.Contains("ReportDesigner.Pdf", pdf.Information.Producer);
+    }
+
+    [Fact]
     public async Task Serves_designer_page()
     {
         var html = await _client.GetStringAsync("/");

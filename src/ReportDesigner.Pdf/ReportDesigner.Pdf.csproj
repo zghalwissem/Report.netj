@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>Moteur PDF de ReportDesigner basé sur SkiaSharp et HarfBuzz (licences MIT), sans dépendance à QuestPDF.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Police par défaut (Lato, SIL Open Font License 1.1 : voir Resources/Fonts/OFL.txt). -->
+    <EmbeddedResource Include="Resources\Fonts\*.ttf" LogicalName="ReportDesigner.Pdf.Fonts.%(Filename)%(Extension)" />
+    <None Include="Resources\Fonts\OFL.txt" Pack="true" PackagePath="licenses\Lato-OFL.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="14.4.0.200" />
+    <PackageReference Include="SkiaSharp" Version="4.157.0" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" Version="4.157.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.157.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReportDesigner.Core\ReportDesigner.Core.csproj" />
+  </ItemGroup>
+
+</Project>
