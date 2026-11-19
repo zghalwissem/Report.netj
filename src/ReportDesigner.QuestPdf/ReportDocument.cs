@@ -146,7 +146,7 @@ public sealed class ReportDocument : IDocument
 
     private void ComposeBand(IContainer container, Band band, EvaluationContext ctx, string? alternateBackground = null)
     {
-        if (band.Height <= 0) return;
+        if (band.Height <= 0 || !DynamicValues.IsVisible(band, ctx)) return;
 
         var background = ParseColor(alternateBackground) ?? ParseColor(band.Background);
 
@@ -157,7 +157,7 @@ public sealed class ReportDocument : IDocument
             if (background is { } bg) primary.Background(bg);
             foreach (var element in band.Elements)
             {
-                if (element.Width <= 0 || element.Height <= 0) continue;
+                if (element.Width <= 0 || element.Height <= 0 || !DynamicValues.IsVisible(element, ctx)) continue;
                 var box = layers.Layer()
                     .Unconstrained()
                     .OffsetX(element.X)
@@ -181,23 +181,23 @@ public sealed class ReportDocument : IDocument
                 ComposeText(container, element, ctx);
                 break;
             case ElementType.Image:
-                ComposeImage(container, element);
+                ComposeImage(container, element, ctx);
                 break;
             case ElementType.Line:
-                ComposeLine(container, element);
+                ComposeLine(container, element, ctx);
                 break;
             case ElementType.Rectangle:
-                ApplyBox(container, element);
+                ApplyBox(container, element, ctx);
                 break;
         }
     }
 
-    private static IContainer ApplyBox(IContainer container, ReportElement element)
+    private static IContainer ApplyBox(IContainer container, ReportElement element, EvaluationContext ctx)
     {
         if (element.CornerRadius > 0) container = container.CornerRadius(element.CornerRadius);
         if (element.BorderWidth > 0)
-            container = container.Border(element.BorderWidth, ParseColor(element.BorderColor) ?? Colors.Black).BorderAlignmentInside();
-        if (ParseColor(element.Background) is { } background) container = container.Background(background);
+            container = container.Border(element.BorderWidth, ParseColor(element.BorderColor, ctx) ?? Colors.Black).BorderAlignmentInside();
+        if (ParseColor(element.Background, ctx) is { } background) container = container.Background(background);
         return container;
     }
 
@@ -205,7 +205,7 @@ public sealed class ReportDocument : IDocument
     {
         var parts = TextExpression.Parse(element.Text).Evaluate(ctx);
 
-        container = ApplyBox(container, element);
+        container = ApplyBox(container, element, ctx);
         if (element.Padding > 0) container = container.Padding(element.Padding);
 
         container = element.VAlign switch
@@ -228,7 +228,7 @@ public sealed class ReportDocument : IDocument
             if (element.Bold) style = style.Bold();
             if (element.Italic) style = style.Italic();
             if (element.Underline) style = style.Underline();
-            if (ParseColor(element.Color) is { } color) style = style.FontColor(color);
+            if (ParseColor(element.Color, ctx) is { } color) style = style.FontColor(color);
             text.DefaultTextStyle(style);
 
             switch (element.HAlign)
@@ -257,10 +257,10 @@ public sealed class ReportDocument : IDocument
     /// <summary>Hauteur de ligne approximative (en multiple de la taille de police) pour estimer le nombre de lignes visibles.</summary>
     private const float LineHeightFactor = 1.2f;
 
-    private void ComposeImage(IContainer container, ReportElement element)
+    private void ComposeImage(IContainer container, ReportElement element, EvaluationContext ctx)
     {
-        container = ApplyBox(container, element);
-        var bytes = DecodeImage(element.Image);
+        container = ApplyBox(container, element, ctx);
+        var bytes = DecodeImage(DynamicValues.Image(element.Image, ctx));
         if (bytes is null)
         {
             container.Background(Colors.Grey.Lighten3).AlignCenter().AlignMiddle().Text("image").FontSize(8).FontColor(Colors.Grey.Darken1);
@@ -276,10 +276,10 @@ public sealed class ReportDocument : IDocument
         }
     }
 
-    private static void ComposeLine(IContainer container, ReportElement element)
+    private static void ComposeLine(IContainer container, ReportElement element, EvaluationContext ctx)
     {
         var thickness = element.BorderWidth > 0 ? element.BorderWidth : 1;
-        var color = ParseColor(element.BorderColor) ?? ParseColor(element.Color) ?? Colors.Black;
+        var color = ParseColor(element.BorderColor, ctx) ?? ParseColor(element.Color, ctx) ?? Colors.Black;
         if (element.Direction == LineDirection.Vertical)
             container.AlignCenter().LineVertical(thickness).LineColor(color);
         else
@@ -302,6 +302,9 @@ public sealed class ReportDocument : IDocument
             throw new InvalidDataException("Image invalide : une data URL ou une chaîne base64 est attendue.");
         }
     }
+
+    private static Color? ParseColor(string? value, EvaluationContext ctx) =>
+        DynamicValues.Color(value, ctx) is { } c ? (Color?)Color.FromARGB(c.A, c.R, c.G, c.B) : null;
 
     private static Color? ParseColor(string? value) =>
         ReportColor.Parse(value) is { } c ? (Color?)Color.FromARGB(c.A, c.R, c.G, c.B) : null;

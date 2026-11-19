@@ -17,14 +17,9 @@ public enum TextPartKind
 public readonly record struct TextPart(TextPartKind Kind, string Text = "");
 
 /// <summary>
-/// Texte contenant des expressions entre accolades.
-/// <para>Syntaxe : <c>{expression}</c> ou <c>{expression:format}</c>. <c>{{</c> et <c>}}</c> produisent des accolades littérales.</para>
-/// <list type="bullet">
-/// <item><c>{client.nom}</c> — champ de la ligne courante (chemin pointé) ;</item>
-/// <item><c>{$P.titre}</c> — paramètre du rapport ;</item>
-/// <item><c>{SUM(montant):N2}</c>, <c>AVG</c>, <c>MIN</c>, <c>MAX</c>, <c>COUNT()</c> — agrégats (sur le groupe courant dans les bandes de groupe, sinon sur tout le rapport) ;</item>
-/// <item><c>{$PAGE}</c>, <c>{$PAGES}</c>, <c>{$DATE:dd/MM/yyyy}</c>, <c>{$NOW}</c>, <c>{$ROW}</c>, <c>{$GROUP_ROW}</c>, <c>{$GROUP}</c>.</item>
-/// </list>
+/// Texte contenant des expressions entre accolades : <c>Total : {SUM(qte * prix):N2} €</c>.
+/// <para>Syntaxe : <c>{expression}</c> ou <c>{expression:format}</c> (format .NET, appliqué avec la culture du rapport).
+/// <c>{{</c> et <c>}}</c> produisent des accolades littérales. Voir <see cref="Expression"/> pour le langage.</para>
 /// </summary>
 public sealed class TextExpression
 {
@@ -37,10 +32,14 @@ public sealed class TextExpression
     /// <summary>Indique si le texte ne contient aucune expression.</summary>
     public bool IsLiteral => _tokens.All(t => t.Expression is null);
 
+    /// <summary>Indique si le texte contient au moins une expression (« {…} »).</summary>
+    public static bool ContainsExpression(string? text) => text is not null && !Parse(text).IsLiteral;
+
     public static TextExpression Parse(string? text)
     {
         text ??= string.Empty;
-        return Cache.Count > 10_000 ? ParseCore(text) : Cache.GetOrAdd(text, ParseCore);
+        if (Cache.Count > 10_000) Cache.Clear();
+        return Cache.GetOrAdd(text, ParseCore);
     }
 
     private static TextExpression ParseCore(string text)
@@ -55,23 +54,57 @@ public sealed class TextExpression
             if (c == '}' && i + 1 < text.Length && text[i + 1] == '}') { literal.Append('}'); i += 2; continue; }
             if (c == '{')
             {
-                var end = text.IndexOf('}', i + 1);
+                var end = FindClosingBrace(text, i + 1);
                 if (end < 0) { literal.Append(text, i, text.Length - i); break; }
 
-                if (literal.Length > 0) { tokens.Add(new Token(literal.ToString(), null, null)); literal.Clear(); }
+                if (literal.Length > 0) { tokens.Add(new Token(literal.ToString(), null, null, null)); literal.Clear(); }
                 var inner = text.Substring(i + 1, end - i - 1);
-                var colon = inner.IndexOf(':');
-                var expr = (colon >= 0 ? inner[..colon] : inner).Trim();
+                var colon = FindFormatSeparator(inner);
+                var source = (colon >= 0 ? inner[..colon] : inner).Trim();
                 var format = colon >= 0 ? inner[(colon + 1)..] : null;
-                tokens.Add(new Token(null, expr, string.IsNullOrEmpty(format) ? null : format));
+                tokens.Add(new Token(null, source, Expressions.Expression.Parse(source), string.IsNullOrEmpty(format) ? null : format));
                 i = end + 1;
                 continue;
             }
             literal.Append(c);
             i++;
         }
-        if (literal.Length > 0) tokens.Add(new Token(literal.ToString(), null, null));
+        if (literal.Length > 0) tokens.Add(new Token(literal.ToString(), null, null, null));
         return new TextExpression(tokens);
+    }
+
+    /// <summary>Accolade fermante correspondante, en ignorant celles placées dans des chaînes '…' ou "…".</summary>
+    private static int FindClosingBrace(string text, int start)
+    {
+        char? quote = null;
+        for (var i = start; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (quote is not null) { if (c == quote) quote = null; continue; }
+            if (c is '\'' or '"') quote = c;
+            else if (c == '}') return i;
+        }
+        return -1;
+    }
+
+    /// <summary>Premier « : » hors chaînes, parenthèses et crochets : sépare l'expression de son format.</summary>
+    private static int FindFormatSeparator(string inner)
+    {
+        char? quote = null;
+        var depth = 0;
+        for (var i = 0; i < inner.Length; i++)
+        {
+            var c = inner[i];
+            if (quote is not null) { if (c == quote) quote = null; continue; }
+            switch (c)
+            {
+                case '\'' or '"': quote = c; break;
+                case '(' or '[': depth++; break;
+                case ')' or ']': depth--; break;
+                case ':' when depth == 0: return i;
+            }
+        }
+        return -1;
     }
 
     public IReadOnlyList<TextPart> Evaluate(EvaluationContext context)
@@ -82,20 +115,15 @@ public sealed class TextExpression
         {
             if (token.Expression is null) { buffer.Append(token.Literal); continue; }
 
-            switch (token.Expression.ToUpperInvariant())
+            // {$PAGE} / {$PAGES} seuls : laissés au moteur (QuestPDF les résout au dessin).
+            if (token.Expression is Expressions.Expression.Variable { Name: "$PAGE" or "$PAGES" } variable && token.Format is null
+                && (variable.Name == "$PAGE" ? context.PageNumber : context.TotalPages) is null)
             {
-                case "$PAGE":
-                    Flush();
-                    parts.Add(new TextPart(TextPartKind.PageNumber));
-                    break;
-                case "$PAGES":
-                    Flush();
-                    parts.Add(new TextPart(TextPartKind.TotalPages));
-                    break;
-                default:
-                    buffer.Append(Format(EvaluateValue(token.Expression, context), token.Format, context.Culture));
-                    break;
+                Flush();
+                parts.Add(new TextPart(variable.Name == "$PAGE" ? TextPartKind.PageNumber : TextPartKind.TotalPages));
+                continue;
             }
+            buffer.Append(Format(token.Expression.Evaluate(context), token.Format, context.Culture));
         }
         Flush();
         return parts;
@@ -108,59 +136,9 @@ public sealed class TextExpression
         }
     }
 
-    /// <summary>Évalue le texte en chaîne simple (les numéros de page sont remplacés par « # »).</summary>
+    /// <summary>Évalue le texte en chaîne simple (les numéros de page inconnus sont remplacés par « # »).</summary>
     public string EvaluateToString(EvaluationContext context) =>
         string.Concat(Evaluate(context).Select(p => p.Kind == TextPartKind.Literal ? p.Text : "#"));
-
-    internal static object? EvaluateValue(string expression, EvaluationContext ctx)
-    {
-        if (expression.Length == 0) return null;
-
-        if (expression[0] == '$')
-        {
-            var upper = expression.ToUpperInvariant();
-            if (upper.StartsWith("$P.", StringComparison.Ordinal))
-                return ToClr(Resolve(ctx.Parameters, expression[3..]));
-            return upper switch
-            {
-                "$DATE" => ctx.Now.Date,
-                "$NOW" => ctx.Now,
-                "$ROW" => ctx.RowNumber,
-                "$GROUP_ROW" => ctx.GroupRowNumber,
-                "$GROUP" => ctx.GroupKey,
-                "$COUNT" => ctx.ScopeRows.Count,
-                _ => throw new ExpressionException($"Variable inconnue : {expression}"),
-            };
-        }
-
-        var open = expression.IndexOf('(');
-        if (open > 0 && expression[^1] == ')')
-        {
-            var function = expression[..open].Trim().ToUpperInvariant();
-            var argument = expression[(open + 1)..^1].Trim();
-            return Aggregate(function, argument, ctx.ScopeRows);
-        }
-
-        return ToClr(Resolve(ctx.Row, expression));
-    }
-
-    private static object? Aggregate(string function, string field, IReadOnlyList<JsonObject> rows)
-    {
-        if (function == "COUNT")
-            return field.Length == 0 ? rows.Count : rows.Count(r => ToClr(Resolve(r, field)) is not null);
-
-        if (field.Length == 0) throw new ExpressionException($"{function}() attend un nom de champ.");
-
-        var values = rows.Select(r => ToDecimal(ToClr(Resolve(r, field)))).Where(v => v.HasValue).Select(v => v!.Value).ToList();
-        return function switch
-        {
-            "SUM" => values.Sum(),
-            "AVG" => values.Count == 0 ? null : values.Average(),
-            "MIN" => values.Count == 0 ? null : values.Min(),
-            "MAX" => values.Count == 0 ? null : values.Max(),
-            _ => throw new ExpressionException($"Fonction inconnue : {function}"),
-        };
-    }
 
     /// <summary>Résout un chemin pointé (ex. <c>client.adresse.ville</c>) dans un objet JSON.</summary>
     public static JsonNode? Resolve(JsonNode? node, string path)
@@ -208,15 +186,6 @@ public sealed class TextExpression
         }
     }
 
-    private static decimal? ToDecimal(object? value) => value switch
-    {
-        decimal d => d,
-        double db => (decimal)db,
-        int i => i,
-        long l => l,
-        string s when decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) => parsed,
-        _ => null,
-    };
 
     internal static string Format(object? value, string? format, CultureInfo culture)
     {
@@ -244,10 +213,9 @@ public sealed class TextExpression
         }
     }
 
-    private static bool LooksLikeDate(string s) =>
-        s.Length >= 8 && char.IsDigit(s[0]) && (s.Contains('-') || s.Contains('/'));
+    private static bool LooksLikeDate(string s) => Values.LooksLikeDate(s);
 
-    private sealed record Token(string? Literal, string? Expression, string? Format);
+    private sealed record Token(string? Literal, string? Source, Expression? Expression, string? Format);
 }
 
 public sealed class ExpressionException(string message) : Exception(message);

@@ -27,28 +27,31 @@ internal sealed class ElementPainter : IDisposable
         if (placed.Background is { } background)
             Fill(canvas, SKRect.Create(left, placed.Top, width, placed.Band.Height), background, 0);
 
+        // Les numéros de page sont connus au dessin : ils sont utilisables dans toute expression ({$PAGE + 1}…).
+        var ctx = placed.Context with { PageNumber = pageNumber, TotalPages = totalPages };
+
         foreach (var element in placed.Band.Elements)
         {
-            if (element.Width <= 0 || element.Height <= 0) continue;
+            if (element.Width <= 0 || element.Height <= 0 || !DynamicValues.IsVisible(element, ctx)) continue;
             var box = SKRect.Create(left + element.X, placed.Top + element.Y, element.Width, element.Height);
             switch (element.Type)
             {
                 case ElementType.Text:
-                    DrawBoxBackground(canvas, element, box);
-                    DrawText(canvas, element, box, placed.Context, pageNumber, totalPages);
-                    DrawBoxBorder(canvas, element, box);
+                    DrawBoxBackground(canvas, element, box, ctx);
+                    DrawText(canvas, element, box, ctx, pageNumber, totalPages);
+                    DrawBoxBorder(canvas, element, box, ctx);
                     break;
                 case ElementType.Image:
-                    DrawBoxBackground(canvas, element, box);
-                    DrawImage(canvas, element, box);
-                    DrawBoxBorder(canvas, element, box);
+                    DrawBoxBackground(canvas, element, box, ctx);
+                    DrawImage(canvas, element, box, ctx);
+                    DrawBoxBorder(canvas, element, box, ctx);
                     break;
                 case ElementType.Rectangle:
-                    DrawBoxBackground(canvas, element, box);
-                    DrawBoxBorder(canvas, element, box);
+                    DrawBoxBackground(canvas, element, box, ctx);
+                    DrawBoxBorder(canvas, element, box, ctx);
                     break;
                 case ElementType.Line:
-                    DrawLine(canvas, element, box);
+                    DrawLine(canvas, element, box, ctx);
                     break;
             }
         }
@@ -56,15 +59,15 @@ internal sealed class ElementPainter : IDisposable
 
     // ------------------------------------------------------------------ boîtes
 
-    private static void DrawBoxBackground(SKCanvas canvas, ReportElement e, SKRect box)
+    private static void DrawBoxBackground(SKCanvas canvas, ReportElement e, SKRect box, EvaluationContext ctx)
     {
-        if (ReportColor.Parse(e.Background) is { } color) Fill(canvas, box, color, e.CornerRadius);
+        if (DynamicValues.Color(e.Background, ctx) is { } color) Fill(canvas, box, color, e.CornerRadius);
     }
 
-    private static void DrawBoxBorder(SKCanvas canvas, ReportElement e, SKRect box)
+    private static void DrawBoxBorder(SKCanvas canvas, ReportElement e, SKRect box, EvaluationContext ctx)
     {
         if (e.BorderWidth <= 0) return;
-        var color = ReportColor.Parse(e.BorderColor) ?? ReportColor.Black;
+        var color = DynamicValues.Color(e.BorderColor, ctx) ?? ReportColor.Black;
         using var paint = Paint(color, SKPaintStyle.Stroke);
         paint.StrokeWidth = e.BorderWidth;
         var half = e.BorderWidth / 2;
@@ -88,10 +91,10 @@ internal sealed class ElementPainter : IDisposable
         IsAntialias = true,
     };
 
-    private static void DrawLine(SKCanvas canvas, ReportElement e, SKRect box)
+    private static void DrawLine(SKCanvas canvas, ReportElement e, SKRect box, EvaluationContext ctx)
     {
         var thickness = e.BorderWidth > 0 ? e.BorderWidth : 1;
-        var color = ReportColor.Parse(e.BorderColor) ?? ReportColor.Parse(e.Color) ?? ReportColor.Black;
+        var color = DynamicValues.Color(e.BorderColor, ctx) ?? DynamicValues.Color(e.Color, ctx) ?? ReportColor.Black;
         using var paint = Paint(color, SKPaintStyle.Fill);
         var rect = e.Direction == LineDirection.Vertical
             ? SKRect.Create(box.MidX - thickness / 2, box.Top, thickness, box.Height)
@@ -101,11 +104,14 @@ internal sealed class ElementPainter : IDisposable
 
     // ------------------------------------------------------------------ images
 
-    private void DrawImage(SKCanvas canvas, ReportElement e, SKRect box)
+    private void DrawImage(SKCanvas canvas, ReportElement e, SKRect box, EvaluationContext ctx)
     {
-        var image = LoadImage(e.Image);
+        var source = DynamicValues.Image(e.Image, ctx);
+        var image = LoadImage(source);
         if (image is null)
         {
+            // Image calculée vide (champ absent) : rien ; image fixe manquante : zone grise.
+            if (source is null && TextExpression.ContainsExpression(e.Image)) return;
             Fill(canvas, box, new ReportColor(255, 238, 238, 238), 0);
             return;
         }
@@ -191,7 +197,7 @@ internal sealed class ElementPainter : IDisposable
             _ => area.Top,
         };
 
-        var color = ReportColor.Parse(e.Color) ?? ReportColor.Black;
+        var color = DynamicValues.Color(e.Color, ctx) ?? ReportColor.Black;
         using var paint = Paint(color, SKPaintStyle.Fill);
 
         for (var i = 0; i < block.Lines.Count; i++)

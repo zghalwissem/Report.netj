@@ -158,4 +158,43 @@ public class RendererTests
         Assert.Equal(rows, data.Rows.Count);
         Assert.Equal(parameters, data.Parameters.Count);
     }
+
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Print_when_hides_elements_and_bands(string engine)
+    {
+        var template = new ReportTemplate
+        {
+            Bands =
+            [
+                new()
+                {
+                    Type = BandType.Detail, Height = 20, PrintWhen = "prix >= 3",
+                    Elements =
+                    [
+                        Text("{nom}"),
+                        new() { Text = "CHER", X = 300, Width = 60, Height = 18, PrintWhen = "prix >= 6", Color = "{IF(prix >= 7.5, '#DC2626', '#000000')}" },
+                    ],
+                },
+            ],
+        };
+        // prix = 1.5, 3, 4.5, 6, 7.5
+        var text = ExtractText(Engine(engine).RenderPdf(template, BuildData(5)), out _);
+        Assert.DoesNotContain("Produit 1", text);
+        Assert.Contains("Produit 2", text);
+        Assert.Equal(2, text.Split("CHER").Length - 1);
+    }
+
+    [Theory]
+    [MemberData(nameof(Engines))]
+    public void Image_can_come_from_data(string engine)
+    {
+        const string png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+        var template = new ReportTemplate
+        {
+            Bands = [new() { Type = BandType.Detail, Height = 30, Elements = [new() { Type = ElementType.Image, Image = "{logo}", Width = 20, Height = 20 }] }],
+        };
+        var data = new ReportData([new JsonObject { ["logo"] = png }, new JsonObject()]);
+        Assert.True(Engine(engine).RenderPdf(template, data).Length > 0);
+    }
 }

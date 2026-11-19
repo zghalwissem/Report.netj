@@ -113,21 +113,33 @@
         <h3>Expressions</h3>
         <p>Tout texte peut contenir des expressions entre accolades, avec un format .NET optionnel après « : ».</p>
         <table>
-          <tr><td><code>{nom}</code></td><td>champ de la ligne courante</td></tr>
-          <tr><td><code>{client.ville}</code></td><td>chemin pointé</td></tr>
-          <tr><td><code>{prix:N2}</code></td><td>nombre formaté</td></tr>
-          <tr><td><code>{date:dd/MM/yyyy}</code></td><td>date formatée</td></tr>
+          <tr><td><code>{nom}</code>, <code>{client.ville}</code></td><td>champ (chemin pointé)</td></tr>
+          <tr><td><code>{[nom complet]}</code></td><td>champ dont le nom contient des espaces</td></tr>
+          <tr><td><code>{prix:N2}</code>, <code>{date:dd/MM/yyyy}</code></td><td>valeur formatée</td></tr>
           <tr><td><code>{$P.titre}</code></td><td>paramètre</td></tr>
-          <tr><td><code>{SUM(montant):N2}</code></td><td>somme (aussi AVG, MIN, MAX)</td></tr>
+          <tr><td><code>{qte * prix:N2}</code></td><td>calcul : <code>+ - * / %</code></td></tr>
+          <tr><td><code>{nom + ' (' + ville + ')'}</code></td><td>concaténation de textes</td></tr>
+          <tr><td><code>{IF(montant &gt; 1000, 'Gros', 'Petit')}</code></td><td>condition : <code>= != &lt; &lt;= &gt; &gt;=</code>, <code>and or not</code></td></tr>
+          <tr><td><code>{SUM(qte * prix):N2}</code></td><td>agrégat sur une expression (aussi AVG, MIN, MAX, COUNT, COUNT_DISTINCT, FIRST, LAST)</td></tr>
+          <tr><td><code>{SUM(montant, 'report')}</code></td><td>portée : <code>'report'</code>, <code>'group1'</code>, <code>'group2'</code>…</td></tr>
           <tr><td><code>{COUNT()}</code></td><td>nombre de lignes</td></tr>
           <tr><td><code>{$PAGE} / {$PAGES}</code></td><td>numéro de page / total</td></tr>
           <tr><td><code>{$DATE}</code>, <code>{$NOW:HH:mm}</code></td><td>date / heure de génération</td></tr>
           <tr><td><code>{$ROW}</code>, <code>{$GROUP_ROW}</code></td><td>n° de ligne (rapport / groupe)</td></tr>
-          <tr><td><code>{$GROUP}</code></td><td>valeur du groupe courant</td></tr>
+          <tr><td><code>{$GROUP}</code>, <code>{$GROUP1}</code>…</td><td>valeur du groupe courant / d'un niveau</td></tr>
           <tr><td><code>{actif:Oui|Non}</code></td><td>libellés d'un booléen</td></tr>
           <tr><td><code>{{ }}</code></td><td>accolades littérales</td></tr>
         </table>
-        <p>Dans les bandes de groupe, les agrégats portent sur le groupe ; ailleurs, sur tout le rapport.</p>
+        <p><b>Fonctions</b> : IF, COALESCE, ISNULL, ISEMPTY · ROUND, FLOOR, CEILING, ABS, MIN, MAX, NUMBER ·
+          UPPER, LOWER, TRIM, LEN, LEFT, RIGHT, SUBSTR, REPLACE, CONTAINS, STARTSWITH, ENDSWITH, CONCAT, FORMAT ·
+          DATE, YEAR, MONTH, DAY, ADDDAYS, ADDMONTHS, DATEDIFF.</p>
+        <p>Les agrégats portent par défaut sur le groupe courant dans les bandes de groupe et le détail, sinon sur tout le rapport.</p>
+        <h3>Conditions et valeurs calculées</h3>
+        <ul>
+          <li><b>Afficher si</b> (élément) / <b>Imprimer si</b> (bande) : <code>remise &gt; 0</code>, <code>$PAGE &gt; 1</code>…</li>
+          <li><b>Couleurs</b> : <code>{IF(montant &lt; 0, '#DC2626', '#000000')}</code>.</li>
+          <li><b>Image</b> provenant des données : <code>{photo}</code> (data URL ou base64).</li>
+        </ul>
         <h3>Bandes</h3>
         <ul>
           <li><b>Titre</b> : une fois, au début.</li>

@@ -80,7 +80,7 @@ public static class ReportPaginator
         // Place une bande ; « keepWith » = hauteur supplémentaire qui doit tenir sur la même page.
         void Place(Band? band, EvaluationContext ctx, ReportColor? background = null, float keepWith = 0)
         {
-            if (band is null) return;
+            if (band is null || !DynamicValues.IsVisible(band, ctx)) return;
             var headerHeight = repeatedHeader?.Height ?? 0;
             if (headerHeight + band.Height > bodyHeight + 0.01f)
                 throw new InvalidDataException(
@@ -138,12 +138,14 @@ public static class ReportPaginator
         Place(Visible(template.GetBand(BandType.Summary)), reportContext);
 
         // ----- En-têtes et pieds de page -----
-        foreach (var laidOut in pages)
+        // L'espace de l'en-tête et du pied est réservé sur chaque page, même si une condition les masque.
+        for (var i = 0; i < pages.Count; i++)
         {
-            if (pageHeader is not null)
-                laidOut.Bands.Insert(0, new PlacedBand(pageHeader, reportContext, page.Margins.Top, ReportColor.Parse(pageHeader.Background)));
-            if (pageFooter is not null)
-                laidOut.Bands.Add(new PlacedBand(pageFooter, reportContext, pageHeight - page.Margins.Bottom - pageFooter.Height, ReportColor.Parse(pageFooter.Background)));
+            var pageContext = reportContext with { PageNumber = i + 1, TotalPages = pages.Count };
+            if (pageHeader is not null && DynamicValues.IsVisible(pageHeader, pageContext))
+                pages[i].Bands.Insert(0, new PlacedBand(pageHeader, pageContext, page.Margins.Top, ReportColor.Parse(pageHeader.Background)));
+            if (pageFooter is not null && DynamicValues.IsVisible(pageFooter, pageContext))
+                pages[i].Bands.Add(new PlacedBand(pageFooter, pageContext, pageHeight - page.Margins.Bottom - pageFooter.Height, ReportColor.Parse(pageFooter.Background)));
         }
 
         return new ReportLayout

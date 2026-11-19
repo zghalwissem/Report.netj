@@ -97,6 +97,9 @@ public sealed class Band
     /// <summary>Couleur de fond appliquée une ligne sur deux (bande Detail uniquement).</summary>
     public string? AlternateBackground { get; set; }
 
+    /// <summary>Condition d'impression (ex. <c>montant > 0</c>) ; vide = toujours imprimée. Une bande masquée ne prend pas de place.</summary>
+    public string? PrintWhen { get; set; }
+
     public List<ReportElement> Elements { get; set; } = new();
 }
 
@@ -136,12 +139,17 @@ public sealed class ReportElement
     public float Width { get; set; } = 100;
     public float Height { get; set; } = 20;
 
+    /// <summary>Condition d'affichage (ex. <c>remise > 0</c>) ; vide = toujours affiché.</summary>
+    public string? PrintWhen { get; set; }
+
     /// <summary>
     /// Texte avec expressions entre accolades, ex. « Total : {SUM(montant):N2} € ».
     /// </summary>
     public string? Text { get; set; }
 
     // --- Texte ---
+    // Les couleurs (Color, Background, BorderColor) acceptent aussi une expression,
+    // ex. {IF(montant < 0, '#DC2626', '#000000')}.
     public string? FontFamily { get; set; }
     public float? FontSize { get; set; }
     public bool Bold { get; set; }
@@ -160,7 +168,10 @@ public sealed class ReportElement
     public float Padding { get; set; } = 2;
 
     // --- Image ---
-    /// <summary>Image en data URL (data:image/png;base64,...) ou en base64 brut.</summary>
+    /// <summary>
+    /// Image en data URL (data:image/png;base64,...) ou en base64 brut, ou expression qui en renvoie une
+    /// (ex. <c>{photo}</c>, pour une image provenant des données).
+    /// </summary>
     public string? Image { get; set; }
     public ImageFit ImageFit { get; set; } = ImageFit.Area;
 

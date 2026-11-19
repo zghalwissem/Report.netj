@@ -131,6 +131,10 @@ label.inline { display: inline-flex; align-items: center; gap: 4px; color: var(-
 .el.image .placeholder { margin: auto; color: var(--muted); font-size: 11px; }
 .el.line { outline-color: transparent; overflow: visible; }
 .el.line:hover { outline: 1px dotted rgba(103,117,133,.55); }
+.el.conditional::after {
+  content: "?"; position: absolute; top: 0; right: 0; font: 700 9px/1 system-ui, sans-serif; color: #fff;
+  background: #d97706; padding: 1px 3px; border-radius: 0 0 0 3px; pointer-events: none;
+}
 .el.selected { outline: 1.5px solid var(--selection); z-index: 10; }
 .el.selected.primary-sel { outline-width: 2px; }
 .handle {

@@ -365,6 +365,16 @@ function renderRuler(width) {
   }
 }
 
+/** Couleur affichable dans le canevas (une couleur calculée par expression n'est connue qu'au rendu). */
+function cssColor(value, fallback = '') {
+  if (!value) return fallback;
+  if (value.startsWith('{')) {
+    const match = value.match(/'(#[0-9a-f]{6})'/i); // première couleur littérale de l'expression
+    return match ? match[1] : fallback;
+  }
+  return value;
+}
+
 function cssFont(name) {
   return name ? `"${name}", "Lato", system-ui, sans-serif` : '';
 }
@@ -372,14 +382,14 @@ function cssFont(name) {
 function renderElement(e) {
   const z = S.zoom;
   const selected = S.selection.has(e.id);
-  const node = h('div', { class: `el ${e.type}${selected ? ' selected' : ''}`, dataset: { id: e.id } });
+  const node = h('div', { class: `el ${e.type}${selected ? ' selected' : ''}${e.printWhen ? ' conditional' : ''}`, dataset: { id: e.id } });
   Object.assign(node.style, {
     left: `${e.x * z}px`, top: `${e.y * z}px`, width: `${e.width * z}px`, height: `${e.height * z}px`,
   });
 
   if (e.type !== 'line') {
-    if (e.background) node.style.background = e.background;
-    if (e.borderWidth > 0) node.style.boxShadow = `inset 0 0 0 ${Math.max(1, e.borderWidth * z)}px ${e.borderColor || '#000'}`;
+    if (e.background) node.style.background = cssColor(e.background);
+    if (e.borderWidth > 0) node.style.boxShadow = `inset 0 0 0 ${Math.max(1, e.borderWidth * z)}px ${cssColor(e.borderColor, '#000')}`;
     if (e.cornerRadius > 0) node.style.borderRadius = `${e.cornerRadius * z}px`;
   }
 
@@ -392,7 +402,7 @@ function renderElement(e) {
         fontWeight: e.bold ? '700' : '400',
         fontStyle: e.italic ? 'italic' : 'normal',
         textDecoration: e.underline ? 'underline' : 'none',
-        color: e.color || '#000',
+        color: cssColor(e.color, '#000'),
         padding: `${(e.padding || 0) * z + (e.borderWidth || 0) * z}px`,
         textAlign: e.hAlign === 'justify' ? 'justify' : (e.hAlign || 'left'),
         alignItems: { middle: 'center', bottom: 'flex-end' }[e.vAlign] || 'flex-start',
@@ -404,15 +414,15 @@ function renderElement(e) {
       break;
     }
     case 'image':
-      node.append(e.image
+      node.append(e.image && !e.image.startsWith('{')
         ? h('img', { src: e.image, alt: '', style: { objectFit: { stretch: 'fill', width: 'contain' }[e.imageFit] || 'contain' } })
-        : h('span', { class: 'placeholder' }, '🖼 Image'));
+        : h('span', { class: 'placeholder' }, e.image ? `🖼 ${e.image}` : '🖼 Image'));
       break;
     case 'line': {
       const thickness = Math.max(1, (e.borderWidth || 1) * z);
       const vertical = e.direction === 'vertical';
       node.append(h('div', { style: {
-        position: 'absolute', background: e.borderColor || e.color || '#000',
+        position: 'absolute', background: cssColor(e.borderColor || e.color, '#000'),
         ...(vertical
           ? { left: `calc(50% - ${thickness / 2}px)`, top: 0, bottom: 0, width: `${thickness}px` }
           : { top: `calc(50% - ${thickness / 2}px)`, left: 0, right: 0, height: `${thickness}px` }),
@@ -420,6 +430,8 @@ function renderElement(e) {
       break;
     }
   }
+
+  if (e.printWhen) node.title = `${node.title ? node.title + '\n' : ''}Affiché si : ${e.printWhen}`;
 
   if (selected && S.selection.size === 1)
     for (const dir of ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']) node.append(h('div', { class: 'handle', dataset: { h: dir } }));
@@ -942,15 +954,19 @@ function selectInput(value, options, onChange) {
     ...options.map(([v, label]) => h('option', { value: v, selected: v === (value ?? '') }, label)));
 }
 
+/** Couleur #RRGGBB, ou expression calculée (« {IF(montant < 0, '#DC2626', '#000000')} »). */
 function colorInput(value, onChange, { allowEmpty = true } = {}) {
   const valid = v => /^#[0-9a-f]{6}$/i.test(v || '');
-  const text = h('input', { type: 'text', value: value || '', placeholder: allowEmpty ? 'aucune' : '#000000' });
+  const isExpression = v => /^\{.*\}$/s.test(v || '');
+  const text = h('input', { type: 'text', value: value || '', placeholder: allowEmpty ? 'aucune' : '#000000',
+    title: 'Couleur #RRGGBB, ou expression : {IF(montant < 0, \'#DC2626\', \'#000000\')}' });
   const picker = h('input', { type: 'color', value: valid(value) ? value : '#000000' });
   picker.addEventListener('input', () => { text.value = picker.value.toUpperCase(); onChange(text.value); });
   text.addEventListener('input', () => {
     const v = text.value.trim();
     if (v === '' && allowEmpty) onChange(null);
     else if (valid(v)) { picker.value = v; onChange(v.toUpperCase()); }
+    else if (isExpression(v)) onChange(v);
   });
   const clear = allowEmpty && h('button', { type: 'button', title: 'Aucune couleur', onclick: () => { text.value = ''; onChange(null); } }, '✕');
   return h('div', { class: 'color-input' }, picker, text, clear);
@@ -1029,7 +1045,13 @@ function elementProps(els) {
           const dataUrl = await readFile(file, true);
           mutate(() => els.forEach(el => (el.image = dataUrl)));
         } }, 'Choisir une image…'),
-        e.image && h('button', { type: 'button', class: 'danger', onclick: () => mutate(() => els.forEach(el => delete el.image)) }, 'Retirer'))));
+        e.image && h('button', { type: 'button', class: 'danger', onclick: () => mutate(() => els.forEach(el => delete el.image)) }, 'Retirer')),
+      prop('Ou image provenant des données (expression)', textInput(e.image?.startsWith('{') ? e.image : '', v => {
+        const value = v.trim();
+        if (value === '' || /^\{.*\}$/s.test(value)) set('image')(value || null);
+      }, { placeholder: '{photo}', list: 'imageFields' }), 'full'),
+      datalist('imageFields', S.fields.rows.map(f => `{${f.name}}`)),
+      h('p', { class: 'hint' }, 'Le champ doit contenir une data URL (data:image/png;base64,…) ou du base64.')));
   }
 
   if (sameType && e.type === 'line') {
@@ -1050,6 +1072,9 @@ function elementProps(els) {
         e.type === 'text' && prop('Marge intérieure (pt)', numberInput(e.padding, set('padding'), { step: 0.5, min: 0 })))));
   }
 
+  nodes.push(h('fieldset', {}, h('legend', {}, 'Affichage conditionnel'),
+    prop('Afficher si', textInput(e.printWhen, v => set('printWhen')(v.trim() || null), { placeholder: 'toujours (ex. remise > 0)' }), 'full')));
+
   nodes.push(h('div', { class: 'props-actions' },
     h('button', { type: 'button', onclick: duplicate, title: 'Ctrl+D' }, 'Dupliquer'),
     h('button', { type: 'button', onclick: () => reorder(true) }, 'Premier plan'),
@@ -1069,6 +1094,8 @@ function bandProps() {
     h('div', { class: 'props-title' }, h('h3', {}, `Bande : ${info.label}`), h('span', { class: 'badge' }, info.desc)),
     h('div', { class: 'grid2' },
       prop('Hauteur (pt)', numberInput(band.height, set('height'), { step: 1, min: 0 })),
+      prop('Imprimer si', textInput(band.printWhen, v => set('printWhen')(v.trim() || null),
+        { placeholder: band.type === 'pageHeader' ? 'toujours (ex. $PAGE > 1)' : 'toujours (ex. montant > 0)' }), 'full'),
       prop('Éléments', h('input', { type: 'text', value: band.elements.length, disabled: true })),
       prop('Fond', colorInput(band.background, set('background')), 'full'),
       band.type === 'detail' && prop('Fond une ligne sur deux', colorInput(band.alternateBackground, set('alternateBackground')), 'full')),
