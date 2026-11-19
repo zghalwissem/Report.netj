@@ -135,6 +135,11 @@ label.inline { display: inline-flex; align-items: center; gap: 4px; color: var(-
   content: "?"; position: absolute; top: 0; right: 0; font: 700 9px/1 system-ui, sans-serif; color: #fff;
   background: #d97706; padding: 1px 3px; border-radius: 0 0 0 3px; pointer-events: none;
 }
+.el.stretch { border-bottom: 2px dashed rgba(22,163,74,.75); }
+.el.stretch::before {
+  content: "⇕"; position: absolute; bottom: 0; right: 0; font: 700 9px/1 system-ui, sans-serif; color: #fff;
+  background: #16a34a; padding: 1px 3px; border-radius: 3px 0 0 0; pointer-events: none;
+}
 .el.selected { outline: 1.5px solid var(--selection); z-index: 10; }
 .el.selected.primary-sel { outline-width: 2px; }
 .handle {

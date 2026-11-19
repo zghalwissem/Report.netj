@@ -32,7 +32,6 @@ public sealed class PdfReportRenderer : IReportRenderer
     public void Render(ReportTemplate template, ReportData data, Stream output, DateTime? now = null)
     {
         var timestamp = now ?? DateTime.Now;
-        var layout = ReportPaginator.Paginate(template, data, timestamp);
 
         var metadata = new SKDocumentPdfMetadata
         {
@@ -45,6 +44,9 @@ public sealed class PdfReportRenderer : IReportRenderer
 
         using var measurer = new TextMeasurer(_fonts);
         using var painter = new ElementPainter(measurer, template.Page);
+
+        // Pagination ; le peintre mesure les textes extensibles avec la même mise en page qu'au dessin.
+        var layout = ReportPaginator.Paginate(template, data, timestamp, painter);
 
         // Passe 1 : relevé des glyphes utilisés, pour n'intégrer au PDF que des sous-ensembles de polices.
         if (SubsetFonts)

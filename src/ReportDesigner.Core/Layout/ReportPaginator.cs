@@ -7,7 +7,15 @@ using ReportDesigner.Core.Model;
 namespace ReportDesigner.Core.Layout;
 
 /// <summary>Bande positionnée sur une page. <see cref="Top"/> est mesuré depuis le haut de la page, en points.</summary>
-public sealed record PlacedBand(Band Band, EvaluationContext Context, float Top, ReportColor? Background);
+public sealed record PlacedBand(Band Band, EvaluationContext Context, float Top, ReportColor? Background, BandFrame? Frame = null)
+{
+    /// <summary>Hauteur effective (agrandie si la bande contient des éléments extensibles).</summary>
+    public float Height => Frame?.Height ?? Band.Height;
+
+    /// <summary>Cadre effectif de l'élément d'indice <paramref name="index"/>.</summary>
+    public ElementFrame ElementFrame(int index) =>
+        Frame?.Elements[index] ?? new ElementFrame(Band.Elements[index].Y, Band.Elements[index].Height);
+}
 
 public sealed class LaidOutPage
 {
@@ -38,7 +46,8 @@ public sealed class ReportLayout
 /// </summary>
 public static class ReportPaginator
 {
-    public static ReportLayout Paginate(ReportTemplate template, ReportData data, DateTime now)
+    /// <param name="measurer">Mesure du texte pour les éléments extensibles ; sans mesure, les bandes gardent leur taille.</param>
+    public static ReportLayout Paginate(ReportTemplate template, ReportData data, DateTime now, IBandMeasurer? measurer = null)
     {
         var page = template.Page;
         var (pageWidth, pageHeight) = PageSizes.Resolve(page);
@@ -67,10 +76,11 @@ public static class ReportPaginator
             if (repeatedHeader is not null) Put(repeatedHeader, reportContext, ReportColor.Parse(repeatedHeader.Background));
         }
 
-        void Put(Band band, EvaluationContext ctx, ReportColor? background)
+        void Put(Band band, EvaluationContext ctx, ReportColor? background, BandFrame? frame = null)
         {
-            pages[^1].Bands.Add(new PlacedBand(band, ctx, bodyTop + cursor, background));
-            cursor += band.Height;
+            var placed = new PlacedBand(band, ctx, bodyTop + cursor, background, frame);
+            pages[^1].Bands.Add(placed);
+            cursor += placed.Height;
         }
 
         bool PageIsEmpty() => cursor <= (repeatedHeader?.Height ?? 0) + 0.01f;
@@ -83,9 +93,12 @@ public static class ReportPaginator
                 throw new InvalidDataException(
                     $"La bande « {band.Type} » ({band.Height} pt) ne tient pas dans la hauteur disponible de la page ({bodyHeight - headerHeight:0.##} pt).");
 
-            var needed = band.Height + Math.Min(keepWith, bodyHeight - headerHeight - band.Height);
+            // Bandes extensibles : hauteur réelle selon le contenu, limitée à une page.
+            var frame = BandStretcher.Compute(band, ctx, measurer, bodyHeight - headerHeight);
+            var height = frame?.Height ?? band.Height;
+            var needed = height + Math.Min(keepWith, Math.Max(0, bodyHeight - headerHeight - height));
             if (!PageIsEmpty() && (newPage || cursor + needed > bodyHeight + 0.01f)) NewPage();
-            Put(band, ctx, background);
+            Put(band, ctx, background, frame);
         }
 
         var sequence = ReportSequence.Build(template, data, culture, now);

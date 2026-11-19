@@ -9,8 +9,11 @@ using VAlign = ReportDesigner.Core.Model.VerticalAlignment;
 
 namespace ReportDesigner.Pdf.Rendering;
 
-/// <summary>Dessine les bandes et leurs éléments sur un canevas Skia (unités : points PDF).</summary>
-internal sealed class ElementPainter : IDisposable
+/// <summary>
+/// Dessine les bandes et leurs éléments sur un canevas Skia (unités : points PDF). Sert aussi de mesure pour
+/// les éléments extensibles : la mesure et le dessin utilisent exactement la même mise en page du texte.
+/// </summary>
+internal sealed class ElementPainter : IDisposable, IBandMeasurer
 {
     private readonly TextMeasurer _measurer;
     private readonly PageSettings _page;
@@ -25,15 +28,17 @@ internal sealed class ElementPainter : IDisposable
     public void DrawBand(SKCanvas canvas, PlacedBand placed, float left, float width, int pageNumber, int totalPages)
     {
         if (placed.Background is { } background)
-            Fill(canvas, SKRect.Create(left, placed.Top, width, placed.Band.Height), background, 0);
+            Fill(canvas, SKRect.Create(left, placed.Top, width, placed.Height), background, 0);
 
         // Les numéros de page sont connus au dessin : ils sont utilisables dans toute expression ({$PAGE + 1}…).
         var ctx = placed.Context with { PageNumber = pageNumber, TotalPages = totalPages };
 
-        foreach (var element in placed.Band.Elements)
+        for (var index = 0; index < placed.Band.Elements.Count; index++)
         {
+            var element = placed.Band.Elements[index];
             if (element.Width <= 0 || element.Height <= 0 || !DynamicValues.IsVisible(element, ctx)) continue;
-            var box = SKRect.Create(left + element.X, placed.Top + element.Y, element.Width, element.Height);
+            var frame = placed.ElementFrame(index); // position et hauteur effectives (bandes extensibles)
+            var box = SKRect.Create(left + element.X, placed.Top + frame.Y, element.Width, frame.Height);
             switch (element.Type)
             {
                 case ElementType.Text:
@@ -158,27 +163,16 @@ internal sealed class ElementPainter : IDisposable
 
     private void DrawText(SKCanvas canvas, ReportElement e, SKRect box, EvaluationContext ctx, int pageNumber, int totalPages)
     {
-        var text = string.Concat(TextExpression.Parse(e.Text).Evaluate(ctx).Select(part => part.Kind switch
-        {
-            TextPartKind.PageNumber => pageNumber.ToString(CultureInfo.InvariantCulture),
-            TextPartKind.TotalPages => totalPages.ToString(CultureInfo.InvariantCulture),
-            _ => part.Text,
-        }));
+        var text = TextContent(e, ctx, pageNumber, totalPages);
         if (text.Length == 0) return;
 
-        var inset = Math.Max(0, e.Padding) + Math.Max(0, e.BorderWidth);
+        var inset = Inset(e);
         var area = SKRect.Create(box.Left + inset, box.Top + inset, Math.Max(1, box.Width - 2 * inset), Math.Max(0, box.Height - 2 * inset));
-        var face = _measurer.Fonts.Resolve(e.FontFamily ?? _page.FontFamily, e.Bold, e.Italic);
-        var options = new TextLayoutOptions
-        {
-            Face = face,
-            FontSize = e.FontSize ?? _page.FontSize,
-            Bold = e.Bold,
-            Italic = e.Italic,
-        };
+        var options = TextOptions(e);
+        var face = options.Face;
 
         TextBlock block;
-        if (e.Overflow == TextOverflow.Shrink)
+        if (e.Overflow == TextOverflow.Shrink && !e.Stretch)
         {
             block = TextLayoutEngine.LayoutToFit(_measurer, text, area.Width, area.Height, options);
         }
@@ -243,6 +237,35 @@ internal sealed class ElementPainter : IDisposable
     /// police sont fusionnés (moins d'opérations PDF, texte extrait plus propre) ; jamais les segments de droite
     /// à gauche, que HarfBuzz retournerait une seconde fois.
     /// </summary>
+    /// <summary>Hauteur nécessaire pour afficher tout le texte (mesure des éléments extensibles).</summary>
+    public float MeasureTextHeight(ReportElement e, EvaluationContext ctx)
+    {
+        // Numéros de page encore inconnus à la pagination : on réserve la place de trois chiffres.
+        var text = TextContent(e, ctx, 999, 999);
+        var inset = Inset(e);
+        if (text.Length == 0) return 0;
+        var block = TextLayoutEngine.Layout(_measurer, text, Math.Max(1, e.Width - 2 * inset), TextOptions(e));
+        return block.Height + 2 * inset;
+    }
+
+    private static string TextContent(ReportElement e, EvaluationContext ctx, int pageNumber, int totalPages) =>
+        string.Concat(TextExpression.Parse(e.Text).Evaluate(ctx).Select(part => part.Kind switch
+        {
+            TextPartKind.PageNumber => (ctx.PageNumber ?? pageNumber).ToString(CultureInfo.InvariantCulture),
+            TextPartKind.TotalPages => (ctx.TotalPages ?? totalPages).ToString(CultureInfo.InvariantCulture),
+            _ => part.Text,
+        }));
+
+    private static float Inset(ReportElement e) => Math.Max(0, e.Padding) + Math.Max(0, e.BorderWidth);
+
+    private TextLayoutOptions TextOptions(ReportElement e) => new()
+    {
+        Face = _measurer.Fonts.Resolve(e.FontFamily ?? _page.FontFamily, e.Bold, e.Italic),
+        FontSize = e.FontSize ?? _page.FontSize,
+        Bold = e.Bold,
+        Italic = e.Italic,
+    };
+
     private static IEnumerable<TextSegment> Runs(TextLine line, bool merge)
     {
         TextSegment? current = null;

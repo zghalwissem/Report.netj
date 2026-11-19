@@ -229,7 +229,8 @@
           "height": 22,
           "text": "{designation}",
           "vAlign": "middle",
-          "padding": 5
+          "padding": 5,
+          "stretch": true
         },
         {
           "id": "e18",
@@ -452,7 +453,7 @@
     },
     "rows": [
       {
-        "designation": "Développement module de facturation",
+        "designation": "Développement module de facturation : saisie des devis, conversion en factures, relances automatiques et export comptable",
         "quantite": 12,
         "prixUnitaire": 450,
         "montant": 5400

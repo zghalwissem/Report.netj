@@ -28,6 +28,9 @@ public class EngineComparisonTests(ITestOutputHelper output)
     public void Sample_templates_render_identically(string name)
     {
         var template = ReportJson.Deserialize(File.ReadAllText(RepositoryFile("src", "ReportDesigner.Web", "templates", name + ".json")));
+        // Le moteur QuestPDF ne gère pas les éléments extensibles : on compare la mise en page sans eux
+        // (les deux moteurs doivent alors tronquer les textes longs de la même façon).
+        foreach (var element in template.Bands.SelectMany(b => b.Elements)) element.Stretch = false;
         Compare(template, ReportData.FromNode(template.SampleData));
     }
 

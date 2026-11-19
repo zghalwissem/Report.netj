@@ -229,8 +229,9 @@ public class PdfOutputTests
     public void Text_with_ligatures_stays_searchable()
     {
         // Lato remplace « ti » par une ligature : le PDF doit conserver le texte d'origine.
-        var text = Extract(new PdfReportRenderer().RenderPdf(Single("Station modernisation"), ReportData.Empty));
-        Assert.Contains("Station modernisation", text);
+        var text = Extract(new PdfReportRenderer().RenderPdf(Single("Station modernisation afin de vérifier"), ReportData.Empty));
+        // « fi » ne doit pas être extrait comme le caractère de ligature U+FB01.
+        Assert.Contains("Station modernisation afin de vérifier", text);
     }
 
     [Fact]

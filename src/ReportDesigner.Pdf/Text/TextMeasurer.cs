@@ -1,7 +1,6 @@
 using System.Text;
 using ReportDesigner.Pdf.Fonts;
 using SkiaSharp;
-using SkiaSharp.HarfBuzz;
 
 namespace ReportDesigner.Pdf.Text;
 
@@ -15,7 +14,7 @@ public sealed record TextSegment(string Text, FontFace Face, float Width, bool I
 public sealed class TextMeasurer : IDisposable
 {
     private readonly FontLibrary _fonts;
-    private readonly Dictionary<SKTypeface, SKShaper> _shapers = new();
+    private readonly Dictionary<SKTypeface, TextShaper> _shapers = new();
     private readonly Dictionary<(SKTypeface, float, bool, bool), SKFont> _skFonts = new();
     private readonly Dictionary<(SKTypeface, float, bool, string), float> _widths = new();
 
@@ -25,20 +24,17 @@ public sealed class TextMeasurer : IDisposable
     private readonly Dictionary<(SKTypeface, float, bool, bool), SKFont> _drawFonts = new();
 
     // Résultats de mise en forme réutilisés entre la passe de relevé et la passe d'écriture.
-    private readonly Dictionary<(SKTypeface, float, bool, string), Shaped> _shaped = new();
+    private readonly Dictionary<(SKTypeface, float, bool, bool?, string), ShapedText> _shaped = new();
 
-    private sealed record Shaped(ushort[] Glyphs, SKPoint[] Points, uint[] Clusters, float Width);
-
-    private Shaped Shape(string text, FontFace face, float size)
+    /// <param name="rightToLeft">Direction imposée par l'algorithme bidi (null : déduite du texte).</param>
+    public ShapedText Shape(string text, FontFace face, float size, bool? rightToLeft = null)
     {
-        var key = (face.Typeface, size, face.SyntheticBold, text);
+        var key = (face.Typeface, size, face.SyntheticBold, rightToLeft, text);
         if (_shaped.TryGetValue(key, out var cached)) return cached;
 
-        var result = GetShaper(face.Typeface).Shape(text, GetFont(face, size));
-        var glyphs = new ushort[result.Codepoints.Length];
-        for (var i = 0; i < glyphs.Length; i++) glyphs[i] = (ushort)result.Codepoints[i];
+        var result = GetShaper(face.Typeface).Shape(text, GetFont(face, size), rightToLeft);
         if (_shaped.Count > 50_000) _shaped.Clear();
-        return _shaped[key] = new Shaped(glyphs, result.Points, result.Clusters, result.Width);
+        return _shaped[key] = result;
     }
 
     public TextMeasurer(FontLibrary fonts) => _fonts = fonts;
@@ -63,10 +59,10 @@ public sealed class TextMeasurer : IDisposable
         return font;
     }
 
-    public SKShaper GetShaper(SKTypeface typeface)
+    public TextShaper GetShaper(SKTypeface typeface)
     {
         if (!_shapers.TryGetValue(typeface, out var shaper))
-            _shapers[typeface] = shaper = new SKShaper(typeface);
+            _shapers[typeface] = shaper = new TextShaper(typeface);
         return shaper;
     }
 

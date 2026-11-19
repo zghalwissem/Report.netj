@@ -179,6 +179,12 @@ public sealed class ReportElement
     public string? PrintWhen { get; set; }
 
     /// <summary>
+    /// Extensible : un texte grandit pour afficher tout son contenu (la bande s'agrandit et les éléments situés
+    /// dessous descendent) ; un rectangle, une ligne verticale ou une image s'étire avec la bande.
+    /// </summary>
+    public bool Stretch { get; set; }
+
+    /// <summary>
     /// Texte avec expressions entre accolades, ex. « Total : {SUM(montant):N2} € ».
     /// </summary>
     public string? Text { get; set; }

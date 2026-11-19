@@ -411,7 +411,7 @@ function cssFont(name) {
 function renderElement(e) {
   const z = S.zoom;
   const selected = S.selection.has(e.id);
-  const node = h('div', { class: `el ${e.type}${selected ? ' selected' : ''}${e.printWhen ? ' conditional' : ''}`, dataset: { id: e.id } });
+  const node = h('div', { class: `el ${e.type}${selected ? ' selected' : ''}${e.printWhen ? ' conditional' : ''}${e.stretch ? ' stretch' : ''}`, dataset: { id: e.id } });
   Object.assign(node.style, {
     left: `${e.x * z}px`, top: `${e.y * z}px`, width: `${e.width * z}px`, height: `${e.height * z}px`,
   });
@@ -1175,6 +1175,17 @@ function elementProps(els) {
         prop('Arrondi (pt)', numberInput(e.cornerRadius, set('cornerRadius'), { step: 1, min: 0 })),
         prop('Couleur de bordure', colorInput(e.borderColor, set('borderColor')), 'full'),
         e.type === 'text' && prop('Marge intérieure (pt)', numberInput(e.padding, set('padding'), { step: 0.5, min: 0 })))));
+  }
+
+  if (sameType && e.type !== 'line' || (sameType && e.type === 'line' && e.direction === 'vertical')) {
+    const help = e.type === 'text'
+      ? 'Le texte grandit pour être affiché en entier : la bande s\'agrandit et les éléments situés dessous descendent.'
+      : 'S\'étire avec la bande quand un texte extensible la fait grandir (cadres, séparateurs verticaux).';
+    nodes.push(h('fieldset', {}, h('legend', {}, 'Extensible'),
+      h('label', { class: 'inline', style: { marginLeft: 0 } },
+        h('input', { type: 'checkbox', checked: !!e.stretch, onchange: ev => update(() => els.forEach(el => (el.stretch = ev.target.checked)), `stretch:${e.id}`) }),
+        e.type === 'text' ? 'Agrandir pour afficher tout le texte' : 'S\'étirer avec la bande'),
+      h('p', { class: 'hint' }, help)));
   }
 
   nodes.push(h('fieldset', {}, h('legend', {}, 'Affichage conditionnel'),

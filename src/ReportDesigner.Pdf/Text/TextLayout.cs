@@ -190,6 +190,16 @@ public static class TextLayoutEngine
         var ellipsis = measurer.Segment(o.Ellipsis, o.Face, o.FontSize, o.Bold, o.Italic);
         var target = maxWidth - ellipsis.Sum(s => s.Width);
 
+        // Coupure entre deux mots : on garde l'espace qui les séparait (« devis, … »), s'il tient.
+        var space = measurer.Segment(" ", o.Face, o.FontSize, o.Bold, o.Italic, isSpace: true);
+        if (line.Segments.Count > 0 && !line.Segments[^1].IsSpace && line.Width + space.Sum(s => s.Width) <= target + Epsilon)
+        {
+            line.Segments.AddRange(space);
+            line.Segments.AddRange(ellipsis);
+            line.EndsParagraph = true;
+            return;
+        }
+
         // Retire des caractères en fin de ligne jusqu'à ce que « … » tienne.
         while (line.Segments.Count > 0 && (line.Width > target + Epsilon || line.Segments[^1].IsSpace))
         {
