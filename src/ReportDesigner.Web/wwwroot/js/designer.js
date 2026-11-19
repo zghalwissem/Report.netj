@@ -21,6 +21,27 @@ const BAND_TYPES = [
 ];
 const BAND_ORDER = BAND_TYPES.map(b => b.type);
 const bandInfo = type => BAND_TYPES.find(b => b.type === type);
+const isGroupBand = type => type === 'groupHeader' || type === 'groupFooter';
+
+/** Identifiant d'une bande : son type, ou « type:niveau » pour les bandes de groupe. */
+const bandKey = band => isGroupBand(band.type) ? `${band.type}:${band.group || 0}` : band.type;
+const keyType = key => String(key).split(':')[0];
+const keyGroup = key => Number(String(key).split(':')[1] || 0);
+
+/** Ordre d'impression : en-têtes de groupe du plus externe au plus interne, pieds dans l'ordre inverse. */
+function compareBands(a, b) {
+  const byType = BAND_ORDER.indexOf(a.type) - BAND_ORDER.indexOf(b.type);
+  if (byType !== 0) return byType;
+  return a.type === 'groupFooter' ? (b.group || 0) - (a.group || 0) : (a.group || 0) - (b.group || 0);
+}
+
+/** Libellé d'une bande, avec le niveau et l'expression pour les groupes. */
+function bandLabel(band) {
+  const info = bandInfo(band.type);
+  if (!isGroupBand(band.type)) return info.label;
+  const expression = S.template.groups?.[band.group || 0]?.expression;
+  return `${info.label} ${(band.group || 0) + 1}${expression ? ` · ${expression}` : ''}`;
+}
 
 // Complété au démarrage par les polices enregistrées sur le serveur (GET /api/fonts).
 const FONTS = ['Lato', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'DejaVu Sans', 'DejaVu Serif', 'Inter'];
@@ -191,7 +212,12 @@ function normalize(template) {
   t.page.margins = Object.assign({ top: 30, right: 30, bottom: 30, left: 30 }, t.page.margins);
   t.bands = (t.bands || [])
     .filter(b => BAND_ORDER.includes(b.type))
-    .sort((a, b) => BAND_ORDER.indexOf(a.type) - BAND_ORDER.indexOf(b.type));
+    .sort(compareBands);
+  // Ancien format : un seul champ « groupBy ».
+  t.groups = Array.isArray(t.groups) ? t.groups : [];
+  if (!t.groups.length && t.groupBy) t.groups.push({ expression: t.groupBy, startOnNewPage: false });
+  t.groupBy = undefined;
+  for (const band of t.bands) if (isGroupBand(band.type)) band.group = band.group || 0;
   for (const band of t.bands) {
     band.height = Number(band.height ?? 30);
     band.elements = (band.elements || []).map(normalizeElement);
@@ -220,7 +246,7 @@ function contentWidth() {
   return round(pageSize()[0] - m.left - m.right);
 }
 
-const getBand = type => S.template.bands.find(b => b.type === type);
+const getBand = key => S.template.bands.find(b => bandKey(b) === key);
 
 function findElement(id) {
   for (const band of S.template.bands) {
@@ -232,12 +258,14 @@ function findElement(id) {
 
 const selectedElements = () => [...S.selection].map(findElement).filter(Boolean).map(r => r.element);
 
-function ensureBand(type) {
-  let band = getBand(type);
+function ensureBand(key) {
+  let band = getBand(key);
+  const type = keyType(key);
   if (!band) {
     band = { type, height: type === 'detail' ? 20 : 30, elements: [] };
+    if (isGroupBand(type)) band.group = keyGroup(key);
     S.template.bands.push(band);
-    S.template.bands.sort((a, b) => BAND_ORDER.indexOf(a.type) - BAND_ORDER.indexOf(b.type));
+    S.template.bands.sort(compareBands);
   }
   return band;
 }
@@ -335,7 +363,8 @@ function renderCanvas() {
 
   for (const band of S.template.bands) {
     const info = bandInfo(band.type);
-    const body = h('div', { class: 'band-body', dataset: { band: band.type } });
+    const key = bandKey(band);
+    const body = h('div', { class: 'band-body', dataset: { band: key } });
     body.style.height = `${band.height * z}px`;
     body.style.backgroundColor = band.background || '';
     body.style.backgroundSize = `${S.grid * z * 2}px ${S.grid * z * 2}px`;
@@ -343,11 +372,11 @@ function renderCanvas() {
       body.append(h('div', { class: 'band-empty-hint' }, 'Glissez des éléments ici'));
     for (const element of band.elements) body.append(renderElement(element));
 
-    page.append(h('div', { class: `band${S.band === band.type ? ' selected' : ''}`, dataset: { band: band.type } },
-      h('div', { class: 'band-label', dataset: { bandLabel: band.type }, title: `${info.label} — ${info.desc}` },
-        h('b', {}, info.label), `${round(band.height)} pt`),
+    page.append(h('div', { class: `band${S.band === key ? ' selected' : ''}`, dataset: { band: key } },
+      h('div', { class: 'band-label', dataset: { bandLabel: key }, title: `${bandLabel(band)} — ${info.desc}${band.printWhen ? `\nImprimée si : ${band.printWhen}` : ''}` },
+        h('b', {}, bandLabel(band)), `${round(band.height)} pt${band.printWhen ? ' · ?' : ''}`),
       body,
-      h('div', { class: 'band-resize', dataset: { bandResize: band.type }, title: 'Glisser pour changer la hauteur de la bande' })));
+      h('div', { class: 'band-resize', dataset: { bandResize: key }, title: 'Glisser pour changer la hauteur de la bande' })));
   }
 
   $('#alignBar').hidden = S.selection.size < 2;
@@ -498,7 +527,7 @@ function onPointerDown(e) {
 
   if (resizeBar) {
     const band = getBand(resizeBar.dataset.bandResize);
-    S.band = band.type;
+    S.band = bandKey(band);
     drag = { kind: 'band', band, startY: e.clientY, orig: band.height, node: resizeBar };
     resizeBar.classList.add('active');
     e.preventDefault();
@@ -516,12 +545,12 @@ function onPointerDown(e) {
   if (elNode) {
     const id = elNode.dataset.id;
     const { band } = findElement(id);
+    S.band = bandKey(band);
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       S.selection.has(id) ? S.selection.delete(id) : S.selection.add(id);
     } else if (!S.selection.has(id)) {
       S.selection = new Set([id]);
     }
-    S.band = band.type;
     render();
     if (!S.selection.has(id)) return;
     const rect = $(`.el[data-id="${id}"]`).getBoundingClientRect();
@@ -591,7 +620,7 @@ function onPointerMove(e) {
     case 'band': {
       if (!drag.started) { drag.started = true; pushUndo(); }
       drag.band.height = Math.max(0, snap(drag.orig + dy));
-      const body = $(`.band-body[data-band="${drag.band.type}"]`);
+      const body = $(`.band-body[data-band="${bandKey(drag.band)}"]`);
       body.style.height = `${drag.band.height * z}px`;
       showDragInfo(e, `hauteur ${drag.band.height} pt`);
       break;
@@ -629,12 +658,12 @@ function onPointerUp(e) {
     const target = bandUnder(e);
     if (current.orig.length === 1 && target) {
       const { element, band } = findElement(current.id);
-      if (target.type !== band.type) {
+      if (target !== band) {
         band.elements.splice(band.elements.indexOf(element), 1);
-        const rect = $(`.band-body[data-band="${target.type}"]`).getBoundingClientRect();
+        const rect = $(`.band-body[data-band="${bandKey(target)}"]`).getBoundingClientRect();
         element.y = Math.max(0, snap((e.clientY - rect.top) / S.zoom - current.grabY));
         target.elements.push(element);
-        S.band = target.type;
+        S.band = bandKey(target);
       }
     }
     markDirty();
@@ -656,7 +685,7 @@ function highlightBandUnder(e) {
   if (drag.orig.length !== 1) return;
   const target = bandUnder(e);
   const source = findElement(drag.id).band;
-  $$('.band').forEach(n => n.classList.toggle('drop-target', !!target && target !== source && n.dataset.band === target.type));
+  $$('.band').forEach(n => n.classList.toggle('drop-target', !!target && target !== source && n.dataset.band === bandKey(target)));
 }
 
 let dragInfo;
@@ -714,7 +743,7 @@ function buildElement({ tool, field }, bandType) {
 }
 
 function addElement(payload, bandType, x, y) {
-  const spec = buildElement(payload, bandType);
+  const spec = buildElement(payload, keyType(bandType));
   if (!spec) return;
   mutate(() => {
     const band = ensureBand(bandType);
@@ -757,7 +786,7 @@ function nudge(dx, dy) {
 
 function copySelection() {
   if (!S.selection.size) return false;
-  S.clipboard = [...S.selection].map(findElement).filter(Boolean).map(({ element, band }) => ({ element: clone(element), band: band.type }));
+  S.clipboard = [...S.selection].map(findElement).filter(Boolean).map(({ element, band }) => ({ element: clone(element), band: bandKey(band) }));
   return true;
 }
 
@@ -768,7 +797,7 @@ function paste() {
     for (const item of S.clipboard) {
       const band = ensureBand(S.clipboard.length === 1 ? S.band : item.band);
       const element = { ...clone(item.element), id: uid() };
-      if (band.type === item.band) { element.x += 10; element.y += 10; }
+      if (bandKey(band) === item.band) { element.x += 10; element.y += 10; }
       band.height = Math.max(band.height, element.y + element.height);
       band.elements.push(element);
       ids.push(element.id);
@@ -827,7 +856,7 @@ function toggleBand(type, enabled) {
   if (enabled && !band) {
     mutate(() => { ensureBand(type); S.band = type; });
   } else if (!enabled && band) {
-    if (band.elements.length && !confirm(`Supprimer la bande « ${bandInfo(type).label} » et ses ${band.elements.length} élément(s) ?`)) {
+    if (band.elements.length && !confirm(`Supprimer la bande « ${bandLabel(band)} » et ses ${band.elements.length} élément(s) ?`)) {
       renderBandsList();
       return;
     }
@@ -843,13 +872,89 @@ function toggleBand(type, enabled) {
 // ---------------------------------------------------------------------------
 
 function renderBandsList() {
-  $('#bandsList').replaceChildren(...BAND_TYPES.map(info => {
-    const enabled = !!getBand(info.type);
-    return h('li', {},
-      h('label', { title: info.desc },
-        h('input', { type: 'checkbox', checked: enabled, onchange: e => toggleBand(info.type, e.target.checked) }),
-        info.label));
-  }));
+  const items = [];
+  const levels = S.template.groups.length;
+  for (const info of BAND_TYPES) {
+    if (!isGroupBand(info.type)) {
+      items.push({ key: info.type, label: info.label, desc: info.desc });
+      continue;
+    }
+    const range = [...Array(levels).keys()];
+    if (info.type === 'groupFooter') range.reverse();
+    for (const level of range)
+      items.push({ key: `${info.type}:${level}`, label: bandLabel({ type: info.type, group: level }), desc: info.desc, indent: level });
+  }
+  const nodes = items.map(item => h('li', { style: { paddingLeft: `${(item.indent || 0) * 10}px` } },
+    h('label', { title: item.desc },
+      h('input', { type: 'checkbox', checked: !!getBand(item.key), onchange: e => toggleBand(item.key, e.target.checked) }),
+      item.label)));
+  if (!levels) nodes.push(h('li', { class: 'hint' }, 'Bandes de groupe : ajoutez un niveau dans « Groupes » (propriétés du rapport).'));
+  $('#bandsList').replaceChildren(...nodes);
+}
+
+// ---------------------------------------------------------------------------
+// Niveaux de groupe
+// ---------------------------------------------------------------------------
+
+function addGroupLevel() {
+  mutate(() => {
+    S.template.groups.push({ expression: S.fields.rows[0]?.name || '', startOnNewPage: false });
+    const level = S.template.groups.length - 1;
+    ensureBand(`groupHeader:${level}`).height = 22;
+    S.band = `groupHeader:${level}`;
+    S.selection.clear();
+  });
+}
+
+function removeGroupLevel(level) {
+  const bands = S.template.bands.filter(b => isGroupBand(b.type) && (b.group || 0) === level);
+  const count = bands.reduce((n, b) => n + b.elements.length, 0);
+  if (count && !confirm(`Supprimer le niveau ${level + 1} et ses bandes (${count} élément(s)) ?`)) return;
+  mutate(() => {
+    S.template.groups.splice(level, 1);
+    S.template.bands = S.template.bands.filter(b => !bands.includes(b));
+    for (const b of S.template.bands) if (isGroupBand(b.type) && b.group > level) b.group--;
+    for (const b of bands) for (const e of b.elements) S.selection.delete(e.id);
+    S.template.bands.sort(compareBands);
+    if (!getBand(S.band)) S.band = 'detail';
+  });
+}
+
+/** Échange deux niveaux de groupe (et leurs bandes). */
+function moveGroupLevel(level, delta) {
+  const other = level + delta;
+  if (other < 0 || other >= S.template.groups.length) return;
+  mutate(() => {
+    const groups = S.template.groups;
+    [groups[level], groups[other]] = [groups[other], groups[level]];
+    for (const b of S.template.bands) {
+      if (!isGroupBand(b.type)) continue;
+      if (b.group === level) b.group = other;
+      else if (b.group === other) b.group = level;
+    }
+    S.template.bands.sort(compareBands);
+    if (isGroupBand(keyType(S.band))) S.band = keyGroup(S.band) === level ? `${keyType(S.band)}:${other}` : S.band;
+  });
+}
+
+function groupsEditor() {
+  const t = S.template;
+  const rows = t.groups.map((group, level) => h('div', { class: 'group-row' },
+    h('span', { class: 'group-level' }, level + 1),
+    textInput(group.expression, v => update(() => { group.expression = v; renderBandsList(); }, `group-${level}`),
+      { list: 'groupFields', placeholder: 'champ ou expression, ex. YEAR(date)' }),
+    h('label', { class: 'inline', title: 'Commencer chaque groupe sur une nouvelle page' },
+      h('input', { type: 'checkbox', checked: !!group.startOnNewPage, onchange: e => update(() => (group.startOnNewPage = e.target.checked)) }), '⤓ page'),
+    h('button', { type: 'button', title: 'Monter', disabled: level === 0, onclick: () => moveGroupLevel(level, -1) }, '↑'),
+    h('button', { type: 'button', title: 'Descendre', disabled: level === t.groups.length - 1, onclick: () => moveGroupLevel(level, 1) }, '↓'),
+    h('button', { type: 'button', class: 'danger', title: 'Supprimer ce niveau', onclick: () => removeGroupLevel(level) }, '✕')));
+  return h('fieldset', {}, h('legend', {}, 'Groupes'),
+    ...rows,
+    h('div', { class: 'props-actions' }, h('button', { type: 'button', onclick: addGroupLevel }, '+ Ajouter un niveau')),
+    h('p', { class: 'hint' }, t.groups.length
+      ? 'Niveau 1 = le plus externe. Dans les bandes de groupe : {$GROUP}, {$GROUP1}, {SUM(montant)} (sur le groupe), {SUM(montant, \'report\')}.'
+      : 'Aucun regroupement.'),
+    datalist('groupFields', S.fields.rows.map(f => f.name)));
 }
 
 /** Déduit la liste des champs (lignes et paramètres) à partir des données d'exemple. */
@@ -997,7 +1102,7 @@ function elementProps(els) {
 
   nodes.push(h('div', { class: 'props-title' },
     h('h3', {}, multi ? `${els.length} éléments` : ELEMENT_LABELS[e.type]),
-    h('span', { class: 'badge' }, multi ? 'modification groupée' : `bande : ${bandInfo(findElement(e.id).band.type).label}`)));
+    h('span', { class: 'badge' }, multi ? 'modification groupée' : `bande : ${bandLabel(findElement(e.id).band)}`)));
 
   nodes.push(h('fieldset', {}, h('legend', {}, 'Position et taille (pt)'),
     h('div', { class: 'grid4' },
@@ -1087,11 +1192,11 @@ function bandProps() {
   const band = getBand(S.band);
   if (!band) return [];
   const info = bandInfo(band.type);
-  const set = key => value => update(() => (band[key] = value), `band-${key}:${band.type}`);
-  const groupWarning = (band.type === 'groupHeader' || band.type === 'groupFooter') && !S.template.groupBy
-    && h('p', { class: 'hint', style: { color: 'var(--danger)' } }, 'Renseignez « Regrouper par » dans les propriétés du rapport pour activer cette bande.');
+  const set = key => value => update(() => (band[key] = value), `band-${key}:${bandKey(band)}`);
+  const groupWarning = isGroupBand(band.type) && !S.template.groups[band.group || 0]?.expression
+    && h('p', { class: 'hint', style: { color: 'var(--danger)' } }, 'Renseignez l\'expression de ce niveau dans « Groupes » (propriétés du rapport) pour activer cette bande.');
   return [
-    h('div', { class: 'props-title' }, h('h3', {}, `Bande : ${info.label}`), h('span', { class: 'badge' }, info.desc)),
+    h('div', { class: 'props-title' }, h('h3', {}, `Bande : ${bandLabel(band)}`), h('span', { class: 'badge' }, info.desc)),
     h('div', { class: 'grid2' },
       prop('Hauteur (pt)', numberInput(band.height, set('height'), { step: 1, min: 0 })),
       prop('Imprimer si', textInput(band.printWhen, v => set('printWhen')(v.trim() || null),
@@ -1102,7 +1207,7 @@ function bandProps() {
     groupWarning,
     h('div', { class: 'props-actions' },
       h('button', { type: 'button', onclick: selectAllInBand }, 'Tout sélectionner'),
-      h('button', { type: 'button', class: 'danger', onclick: () => toggleBand(band.type, false) }, 'Supprimer la bande')),
+      h('button', { type: 'button', class: 'danger', onclick: () => toggleBand(bandKey(band), false) }, 'Supprimer la bande')),
   ];
 }
 
@@ -1111,14 +1216,11 @@ function reportProps() {
   const p = t.page;
   const setPage = key => value => { update(() => (p[key] = value), `page-${key}`); };
   const setMargin = key => value => update(() => (p.margins[key] = value ?? 0), `margin-${key}`);
-  const fieldNames = S.fields.rows.map(f => f.name);
   return [
     h('fieldset', {}, h('legend', {}, 'Rapport'),
       h('div', { class: 'grid2' },
-        prop('Titre', textInput(t.title, v => update(() => { t.title = v || null; updateTitle(); }, 'title')), 'full'),
-        prop('Regrouper par', textInput(t.groupBy, v => update(() => (t.groupBy = v.trim() || null), 'groupBy'),
-          { list: 'groupFields', placeholder: 'aucun regroupement' }), 'full'),
-        datalist('groupFields', fieldNames))),
+        prop('Titre', textInput(t.title, v => update(() => { t.title = v || null; updateTitle(); }, 'title')), 'full'))),
+    groupsEditor(),
     h('fieldset', {}, h('legend', {}, 'Page'),
       h('div', { class: 'grid2' },
         prop('Format', selectInput(p.size, [...Object.keys(PAGE_SIZES).map(k => [k, k]), ['Custom', 'Personnalisé']],
@@ -1211,7 +1313,7 @@ function setTemplate(template, savedName) {
   S.template = normalize(template);
   S.savedName = savedName;
   S.selection.clear();
-  S.band = getBand('detail') ? 'detail' : S.template.bands[0]?.type || 'detail';
+  S.band = getBand('detail') ? 'detail' : (S.template.bands[0] ? bandKey(S.template.bands[0]) : 'detail');
   S.undo = [];
   S.redo = [];
   S.dirty = false;

@@ -134,7 +134,9 @@ public class RendererTests
         Assert.Contains("\"type\": \"columnHeader\"", json);
         var back = ReportJson.Deserialize(json);
         Assert.Equal(8, back.Bands.Count);
-        Assert.Equal("categorie", back.GroupBy);
+        // L'ancien « groupBy » est converti en niveau de groupe.
+        Assert.Null(back.GroupBy);
+        Assert.Equal("categorie", Assert.Single(back.Groups).Expression);
     }
 
     [Theory]

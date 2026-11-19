@@ -35,6 +35,7 @@ public sealed partial class TemplateStore
     public async Task SaveAsync(string name, ReportTemplate template, CancellationToken ct = default)
     {
         template.Name = name;
+        template.Normalize();
         var path = PathFor(name);
         var temp = path + ".tmp";
         await File.WriteAllTextAsync(temp, ReportJson.Serialize(template), ct);

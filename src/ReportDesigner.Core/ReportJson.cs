@@ -23,8 +23,8 @@ public static class ReportJson
     }
 
     public static ReportTemplate Deserialize(string json) =>
-        JsonSerializer.Deserialize<ReportTemplate>(json, Options)
-        ?? throw new InvalidDataException("Modèle de rapport vide.");
+        (JsonSerializer.Deserialize<ReportTemplate>(json, Options)
+         ?? throw new InvalidDataException("Modèle de rapport vide.")).Normalize();
 
     public static string Serialize(ReportTemplate template) => JsonSerializer.Serialize(template, Options);
 }

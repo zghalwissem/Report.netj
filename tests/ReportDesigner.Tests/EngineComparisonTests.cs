@@ -35,6 +35,10 @@ public class EngineComparisonTests(ITestOutputHelper output)
     public void Grouped_multi_page_report_renders_identically() =>
         Compare(RendererTests.BuildTemplate(), RendererTests.BuildData(200));
 
+    [Fact]
+    public void Nested_groups_render_identically() =>
+        Compare(NestedGroupTests.Template(), NestedGroupTests.Data(150));
+
     private void Compare(ReportTemplate template, ReportData data)
     {
         var skia = Words(RendererTests.Engine("skia").RenderPdf(template, data, FixedNow));

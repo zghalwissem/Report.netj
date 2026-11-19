@@ -14,7 +14,10 @@ public sealed class ReportTemplate
 
     public PageSettings Page { get; set; } = new();
 
-    /// <summary>Champ de regroupement (chemin pointé) utilisé par les bandes GroupHeader / GroupFooter.</summary>
+    /// <summary>Niveaux de regroupement, du plus externe au plus interne (ex. région puis vendeur).</summary>
+    public List<GroupDefinition> Groups { get; set; } = new();
+
+    /// <summary>Ancien format (un seul niveau) : converti en <see cref="Groups"/> à la lecture.</summary>
     public string? GroupBy { get; set; }
 
     public List<Band> Bands { get; set; } = new();
@@ -23,6 +26,36 @@ public sealed class ReportTemplate
     public JsonNode? SampleData { get; set; }
 
     public Band? GetBand(BandType type) => Bands.FirstOrDefault(b => b.Type == type);
+
+    /// <summary>En-tête ou pied d'un niveau de groupe (0 = le plus externe).</summary>
+    public Band? GetGroupBand(BandType type, int level) => Bands.FirstOrDefault(b => b.Type == type && b.Group == level);
+
+    /// <summary>Niveaux de regroupement effectifs (y compris l'ancien <see cref="GroupBy"/>).</summary>
+    public IReadOnlyList<GroupDefinition> GetGroups() =>
+        Groups.Count > 0 ? Groups.Where(g => !string.IsNullOrWhiteSpace(g.Expression)).ToList()
+        : string.IsNullOrWhiteSpace(GroupBy) ? [] : [new GroupDefinition { Expression = GroupBy }];
+
+    /// <summary>Convertit l'ancien format et trie les bandes dans leur ordre d'impression.</summary>
+    public ReportTemplate Normalize()
+    {
+        if (Groups.Count == 0 && !string.IsNullOrWhiteSpace(GroupBy)) Groups.Add(new GroupDefinition { Expression = GroupBy });
+        GroupBy = null;
+        Bands = Bands
+            .OrderBy(b => (int)b.Type)
+            .ThenBy(b => b.Type == BandType.GroupFooter ? -b.Group : b.Group) // pieds : du plus interne au plus externe
+            .ToList();
+        return this;
+    }
+}
+
+/// <summary>Niveau de regroupement.</summary>
+public sealed class GroupDefinition
+{
+    /// <summary>Expression de regroupement : un champ (<c>region</c>) ou un calcul (<c>YEAR(date)</c>).</summary>
+    public string Expression { get; set; } = string.Empty;
+
+    /// <summary>Commence chaque groupe sur une nouvelle page.</summary>
+    public bool StartOnNewPage { get; set; }
 }
 
 public sealed class PageSettings
@@ -99,6 +132,9 @@ public sealed class Band
 
     /// <summary>Condition d'impression (ex. <c>montant > 0</c>) ; vide = toujours imprimée. Une bande masquée ne prend pas de place.</summary>
     public string? PrintWhen { get; set; }
+
+    /// <summary>Niveau de groupe (0 = le plus externe) pour les bandes GroupHeader / GroupFooter.</summary>
+    public int Group { get; set; }
 
     public List<ReportElement> Elements { get; set; } = new();
 }

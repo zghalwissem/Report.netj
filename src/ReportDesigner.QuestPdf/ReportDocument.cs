@@ -64,15 +64,18 @@ public sealed class ReportDocument : IDocument
                     column.Item().Element(c => ComposeBand(c, pageHeader, reportContext));
             });
 
+            var sequence = ReportSequence.Build(_template, _data, _culture, _now);
             page.Content().Column(column =>
             {
-                if (_template.GetBand(BandType.Title) is { } title)
-                    column.Item().Element(c => ComposeBand(c, title, reportContext));
+                foreach (var item in sequence.Where(i => i.Section == BandSection.Title))
+                    column.Item().Element(c => ComposeInstance(c, item));
 
-                column.Item().Element(ComposeBody);
+                var rows = sequence.Where(i => i.Section == BandSection.Rows).ToList();
+                if (rows.Count > 0)
+                    column.Item().Element(c => ComposeRows(c, rows, sequence[0] != rows[0]));
 
-                if (_template.GetBand(BandType.Summary) is { } summary)
-                    column.Item().Element(c => ComposeBand(c, summary, reportContext));
+                foreach (var item in sequence.Where(i => i.Section == BandSection.Summary))
+                    column.Item().Element(c => ComposeInstance(c, item));
             });
 
             page.Footer().Column(column =>
@@ -83,15 +86,10 @@ public sealed class ReportDocument : IDocument
         });
     }
 
-    /// <summary>En-tête de colonnes (répété sur chaque page) + lignes de détail, éventuellement groupées.</summary>
-    private void ComposeBody(IContainer container)
+    /// <summary>En-tête de colonnes (répété sur chaque page) + groupes et lignes de détail.</summary>
+    private void ComposeRows(IContainer container, IReadOnlyList<BandInstance> rows, bool contentBefore)
     {
         var columnHeader = _template.GetBand(BandType.ColumnHeader);
-        var detail = _template.GetBand(BandType.Detail);
-        var groupHeader = _template.GetBand(BandType.GroupHeader);
-        var groupFooter = _template.GetBand(BandType.GroupFooter);
-        var grouping = !string.IsNullOrWhiteSpace(_template.GroupBy);
-
         container.Decoration(decoration =>
         {
             if (columnHeader is not null)
@@ -99,38 +97,22 @@ public sealed class ReportDocument : IDocument
 
             decoration.Content().Column(column =>
             {
-                var rowNumber = 0;
-                foreach (var group in ReportGrouping.Group(_data.Rows, grouping ? _template.GroupBy : null))
+                for (var i = 0; i < rows.Count; i++)
                 {
-                    var first = group.Rows.FirstOrDefault();
-                    if (grouping && groupHeader is not null)
-                    {
-                        var ctx = CreateContext(first, group.Rows, 0, 0, group.Key);
-                        // Évite un en-tête de groupe orphelin en bas de page.
-                        column.Item().EnsureSpace(groupHeader.Height + (detail?.Height ?? 0))
-                            .Element(c => ComposeBand(c, groupHeader, ctx));
-                    }
-
-                    if (detail is not null)
-                    {
-                        for (var i = 0; i < group.Rows.Count; i++)
-                        {
-                            rowNumber++;
-                            var ctx = CreateContext(group.Rows[i], group.Rows, rowNumber, i + 1, group.Key);
-                            var alternate = rowNumber % 2 == 0 ? detail.AlternateBackground : null;
-                            column.Item().Element(c => ComposeBand(c, detail, ctx, alternate));
-                        }
-                    }
-
-                    if (grouping && groupFooter is not null)
-                    {
-                        var ctx = CreateContext(group.Rows.LastOrDefault(), group.Rows, rowNumber, group.Rows.Count, group.Key);
-                        column.Item().Element(c => ComposeBand(c, groupFooter, ctx));
-                    }
+                    var item = rows[i];
+                    if (item.StartOnNewPage && (i > 0 || contentBefore)) column.Item().PageBreak();
+                    var cell = column.Item();
+                    // Évite un en-tête de groupe orphelin en bas de page.
+                    if (item.KeepWith > 0) cell = cell.EnsureSpace(item.Band.Height + item.KeepWith);
+                    cell.Element(c => ComposeInstance(c, item));
                 }
             });
         });
     }
+
+    // La séquence fournit déjà le fond effectif (fond de bande ou alternance une ligne sur deux).
+    private void ComposeInstance(IContainer container, BandInstance item) =>
+        ComposeBand(container, item.Band, item.Context, item.Background, useBandBackground: false);
 
     private EvaluationContext CreateContext(JsonObject? row, IReadOnlyList<JsonObject> scope, int rowNumber, int groupRowNumber, object? groupKey) => new()
     {
@@ -144,11 +126,12 @@ public sealed class ReportDocument : IDocument
         Now = _now,
     };
 
-    private void ComposeBand(IContainer container, Band band, EvaluationContext ctx, string? alternateBackground = null)
+    private void ComposeBand(IContainer container, Band band, EvaluationContext ctx, ReportColor? explicitBackground = null, bool useBandBackground = true)
     {
         if (band.Height <= 0 || !DynamicValues.IsVisible(band, ctx)) return;
 
-        var background = ParseColor(alternateBackground) ?? ParseColor(band.Background);
+        var background = explicitBackground is { } eb ? Color.FromARGB(eb.A, eb.R, eb.G, eb.B)
+            : useBandBackground ? ParseColor(band.Background) : null;
 
         container.Height(band.Height).Layers(layers =>
         {

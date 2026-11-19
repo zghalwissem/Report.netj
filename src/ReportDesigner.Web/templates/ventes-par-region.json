@@ -1,7 +1,12 @@
 {
   "name": "ventes-par-region",
   "title": "Ventes par région",
-  "groupBy": "region",
+  "groups": [
+    {
+      "expression": "region",
+      "startOnNewPage": false
+    }
+  ],
   "page": {
     "size": "A4",
     "orientation": "portrait",

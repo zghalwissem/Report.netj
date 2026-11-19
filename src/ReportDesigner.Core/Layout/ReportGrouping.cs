@@ -4,33 +4,41 @@ using ReportDesigner.Core.Expressions;
 
 namespace ReportDesigner.Core.Layout;
 
-public sealed record ReportGroup(object? Key, IReadOnlyList<JsonObject> Rows);
+/// <summary>Groupe de lignes ; <see cref="Children"/> contient les sous-groupes du niveau suivant.</summary>
+public sealed record ReportGroup(object? Key, IReadOnlyList<JsonObject> Rows, IReadOnlyList<ReportGroup> Children);
 
 public static class ReportGrouping
 {
     /// <summary>
-    /// Regroupe les lignes selon un chemin de champ, dans l'ordre de première apparition
-    /// (les données n'ont pas besoin d'être triées). Sans champ, renvoie un groupe unique.
+    /// Construit l'arbre des groupes : un niveau par expression, dans l'ordre de première apparition
+    /// des valeurs (les données n'ont pas besoin d'être triées).
     /// </summary>
-    public static IReadOnlyList<ReportGroup> Group(IReadOnlyList<JsonObject> rows, string? groupBy)
+    public static IReadOnlyList<ReportGroup> Build(IReadOnlyList<JsonObject> rows, IReadOnlyList<string> expressions, EvaluationContext context)
     {
-        if (string.IsNullOrWhiteSpace(groupBy))
-            return [new ReportGroup(null, rows)];
+        if (expressions.Count == 0) return [new ReportGroup(null, rows, [])];
+        var compiled = expressions.Select(Expression.Parse).ToList();
+        return BuildLevel(rows, 0);
 
-        var order = new List<string>();
-        var groups = new Dictionary<string, (object? Key, List<JsonObject> Rows)>();
-        foreach (var row in rows)
+        IReadOnlyList<ReportGroup> BuildLevel(IReadOnlyList<JsonObject> levelRows, int level)
         {
-            var key = TextExpression.ToClr(TextExpression.Resolve(row, groupBy));
-            var id = Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty;
-            if (!groups.TryGetValue(id, out var bucket))
+            var order = new List<string>();
+            var buckets = new Dictionary<string, (object? Key, List<JsonObject> Rows)>();
+            foreach (var row in levelRows)
             {
-                bucket = (key, new List<JsonObject>());
-                groups[id] = bucket;
-                order.Add(id);
+                var key = compiled[level].Evaluate(context with { Row = row });
+                var id = key is null ? "\u0000null" : Values.ToText(key, CultureInfo.InvariantCulture);
+                if (!buckets.TryGetValue(id, out var bucket))
+                {
+                    bucket = (key, new List<JsonObject>());
+                    buckets[id] = bucket;
+                    order.Add(id);
+                }
+                bucket.Rows.Add(row);
             }
-            bucket.Rows.Add(row);
+            return order.Select(id => new ReportGroup(
+                buckets[id].Key,
+                buckets[id].Rows,
+                level + 1 < compiled.Count ? BuildLevel(buckets[id].Rows, level + 1) : [])).ToList();
         }
-        return order.Select(id => new ReportGroup(groups[id].Key, groups[id].Rows)).ToList();
     }
 }
